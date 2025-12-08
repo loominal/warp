@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/nats-mcp-server/schemas/registry-entry.schema.json",
+  "title": "NATS MCP Agent Registry Entry",
+  "description": "Schema for agent registry entries in the distributed NATS MCP system",
+  "type": "object",
+  "properties": {
+    "guid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "description": "UUID v4 unique identifier for this agent"
+    },
+    "agentType": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Agent type identifier (e.g., 'project-manager', 'developer', 'reviewer')",
+      "examples": ["project-manager", "developer", "reviewer", "tester", "analyst"]
+    },
+    "handle": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Display name for the agent (same as chat handle)"
+    },
+    "hostname": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Computer hostname where the agent is running"
+    },
+    "projectId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{16}$",
+      "description": "Opaque hash of project path (16-character hex string for privacy)"
+    },
+    "natsUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^nats://",
+      "description": "NATS server URL this agent connects to"
+    },
+    "username": {
+      "type": "string",
+      "minLength": 1,
+      "description": "OS username (optional for privacy)"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "List of agent capabilities",
+      "examples": [["typescript", "testing", "code-review"], ["python", "data-analysis"]]
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["user", "project"],
+      "description": "Scope of agent operation: user-level or project-level"
+    },
+    "visibility": {
+      "type": "string",
+      "enum": ["private", "project-only", "user-only", "public"],
+      "description": "Visibility level determining who can discover this agent"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["online", "busy", "offline"],
+      "description": "Current agent status"
+    },
+    "currentTaskCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of tasks currently being handled by the agent"
+    },
+    "registeredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the agent was first registered"
+    },
+    "lastHeartbeat": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of the agent's last heartbeat"
+    }
+  },
+  "required": [
+    "guid",
+    "agentType",
+    "handle",
+    "hostname",
+    "projectId",
+    "natsUrl",
+    "capabilities",
+    "scope",
+    "visibility",
+    "status",
+    "currentTaskCount",
+    "registeredAt",
+    "lastHeartbeat"
+  ],
+  "additionalProperties": false
+}

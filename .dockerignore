@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Build output (we build in Docker)
+dist/
+
+# Development files
+*.log
+*.md
+!README.md
+
+# Test files
+*.test.ts
+*.spec.ts
+coverage/
+.nyc_output/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Docker files (don't need to copy these into the image)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Kubernetes configs
+config/
+*.argocd.yaml
+
+# Environment files
+.env
+.env.*
+
+# npm
+.npmrc
+.npmignore
