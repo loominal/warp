@@ -10,18 +10,21 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
-    services:
-      nats:
-        image: nats:latest
-        ports:
-          - 4222:4222
-          - 8222:8222
-
     strategy:
       matrix:
         node-version: [18, 20, 22]
 
     steps:
+      - name: Start NATS with JetStream
+        run: |
+          docker run -d --name nats \
+            -p 4222:4222 \
+            -p 8222:8222 \
+            nats:latest -js
+          # Wait for NATS to be ready
+          sleep 5
+          docker logs nats
+
       - name: Checkout code
         uses: actions/checkout@v4
 
