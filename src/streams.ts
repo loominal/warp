@@ -2,14 +2,7 @@
  * JetStream stream and consumer management
  */
 
-import {
-  type StreamConfig,
-  RetentionPolicy,
-  StorageType,
-  AckPolicy,
-  DeliverPolicy,
-  ReplayPolicy,
-} from 'nats';
+import { type StreamConfig, RetentionPolicy, StorageType } from 'nats';
 import { getJetStreamManager, getJetStreamClient } from './nats.js';
 import type { InternalChannel } from './types.js';
 import { createLogger } from './logger.js';
@@ -76,32 +69,6 @@ export async function ensureAllStreams(channels: InternalChannel[]): Promise<voi
   logger.info('All streams ready');
 }
 
-/**
- * Get or create a durable consumer for reading messages
- */
-export async function getOrCreateConsumer(channel: InternalChannel): Promise<string> {
-  const jsm = getJetStreamManager();
-  const consumerName = `${channel.streamName}_READER`;
-
-  try {
-    // Check if consumer exists
-    await jsm.consumers.info(channel.streamName, consumerName);
-    logger.debug('Consumer already exists', { consumer: consumerName });
-    return consumerName;
-  } catch {
-    // Consumer doesn't exist, create it
-    const consumerConfig = {
-      durable_name: consumerName,
-      ack_policy: AckPolicy.Explicit,
-      deliver_policy: DeliverPolicy.All,
-      replay_policy: ReplayPolicy.Instant,
-    };
-
-    await jsm.consumers.add(channel.streamName, consumerConfig);
-    logger.info('Created consumer', { consumer: consumerName, stream: channel.streamName });
-    return consumerName;
-  }
-}
 
 /**
  * Publish a message to a channel's stream
@@ -123,31 +90,59 @@ export async function publishMessage(channel: InternalChannel, payload: string):
 }
 
 /**
- * Read messages from a channel's stream
+ * Read messages from a channel's stream (newest messages, up to limit)
+ * Uses direct stream access for true pub-sub semantics - all agents can read the same messages
  */
 export async function readMessages(
   channel: InternalChannel,
   limit: number
-): Promise<{ data: string; ack: () => void }[]> {
-  const js = getJetStreamClient();
-  const consumerName = await getOrCreateConsumer(channel);
-
-  const messages: { data: string; ack: () => void }[] = [];
+): Promise<{ data: string }[]> {
+  const jsm = getJetStreamManager();
+  const messages: { data: string }[] = [];
 
   try {
-    const consumer = await js.consumers.get(channel.streamName, consumerName);
-    const iter = await consumer.fetch({ max_messages: limit, expires: 5000 });
+    // Get stream info to find message range
+    const streamInfo = await jsm.streams.info(channel.streamName);
+    const { first_seq, last_seq, messages: msgCount } = streamInfo.state;
 
-    for await (const msg of iter) {
-      messages.push({
-        data: msg.data.toString(),
-        ack: () => msg.ack(),
-      });
+    if (msgCount === 0) {
+      return messages;
     }
+
+    // Calculate start sequence for newest N messages
+    const startSeq = Math.max(first_seq, last_seq - limit + 1);
+
+    logger.debug('Reading messages from stream', {
+      stream: channel.streamName,
+      firstSeq: first_seq,
+      lastSeq: last_seq,
+      startSeq,
+      limit,
+    });
+
+    // Read messages directly from stream by sequence number
+    const stream = await jsm.streams.get(channel.streamName);
+    for (let seq = startSeq; seq <= last_seq; seq++) {
+      try {
+        const msg = await stream.getMessage({ seq });
+        messages.push({ data: new TextDecoder().decode(msg.data) });
+      } catch (err) {
+        // Message may have been deleted by retention policy - skip gaps
+        const error = err as Error;
+        if (!error.message?.includes('no message found')) {
+          logger.warn('Error reading message', { seq, error: error.message });
+        }
+      }
+    }
+
+    logger.debug('Messages read from stream', {
+      stream: channel.streamName,
+      count: messages.length,
+    });
   } catch (err) {
     const error = err as Error;
-    // "no messages" is not an error
-    if (error.message?.includes('no messages')) {
+    // Stream doesn't exist yet - not an error
+    if (error.message?.includes('stream not found')) {
       return messages;
     }
     throw new Error(`Failed to read messages from ${channel.name}: ${error.message}`);

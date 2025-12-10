@@ -6,7 +6,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   ensureStream,
   ensureAllStreams,
-  getOrCreateConsumer,
   publishMessage,
   readMessages,
   getStreamInfo,
@@ -196,86 +195,6 @@ describe('ensureAllStreams', () => {
   });
 });
 
-describe('getOrCreateConsumer', () => {
-  let mockJsm: any;
-  let mockChannel: InternalChannel;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-
-    mockChannel = {
-      name: 'test-channel',
-      description: 'Test channel',
-      streamName: 'TEST_STREAM',
-      subject: 'test.subject',
-      maxMessages: 10000,
-      maxBytes: 10485760,
-      maxAgeNanos: 86400000000000,
-    };
-
-    mockJsm = {
-      consumers: {
-        info: vi.fn(),
-        add: vi.fn(),
-      },
-    };
-
-    vi.mocked(getJetStreamManager).mockReturnValue(mockJsm);
-  });
-
-  it('should return existing consumer name when consumer exists', async () => {
-    mockJsm.consumers.info.mockResolvedValue({
-      name: 'TEST_STREAM_READER',
-      config: {},
-    });
-
-    const result = await getOrCreateConsumer(mockChannel);
-
-    expect(result).toBe('TEST_STREAM_READER');
-    expect(mockJsm.consumers.info).toHaveBeenCalledWith('TEST_STREAM', 'TEST_STREAM_READER');
-    expect(mockJsm.consumers.add).not.toHaveBeenCalled();
-  });
-
-  it('should create new consumer when it does not exist', async () => {
-    mockJsm.consumers.info.mockRejectedValue(new Error('consumer not found'));
-    mockJsm.consumers.add.mockResolvedValue({});
-
-    const result = await getOrCreateConsumer(mockChannel);
-
-    expect(result).toBe('TEST_STREAM_READER');
-    expect(mockJsm.consumers.add).toHaveBeenCalledWith('TEST_STREAM',
-      expect.objectContaining({
-        durable_name: 'TEST_STREAM_READER',
-      })
-    );
-  });
-
-  it('should use correct consumer configuration', async () => {
-    mockJsm.consumers.info.mockRejectedValue(new Error('consumer not found'));
-    mockJsm.consumers.add.mockResolvedValue({});
-
-    await getOrCreateConsumer(mockChannel);
-
-    const addCall = mockJsm.consumers.add.mock.calls[0][1];
-    expect(addCall.durable_name).toBe('TEST_STREAM_READER');
-    expect(addCall).toHaveProperty('ack_policy');
-    expect(addCall).toHaveProperty('deliver_policy');
-    expect(addCall).toHaveProperty('replay_policy');
-  });
-
-  it('should generate correct consumer name from stream name', async () => {
-    const channel: InternalChannel = {
-      ...mockChannel,
-      streamName: 'MY_CUSTOM_STREAM',
-    };
-
-    mockJsm.consumers.info.mockResolvedValue({});
-
-    const result = await getOrCreateConsumer(channel);
-
-    expect(result).toBe('MY_CUSTOM_STREAM_READER');
-  });
-});
 
 describe('publishMessage', () => {
   let mockJs: any;
@@ -352,8 +271,8 @@ describe('publishMessage', () => {
 });
 
 describe('readMessages', () => {
-  let mockJs: any;
   let mockJsm: any;
+  let mockStream: any;
   let mockChannel: InternalChannel;
 
   beforeEach(() => {
@@ -369,169 +288,141 @@ describe('readMessages', () => {
       maxAgeNanos: 86400000000000,
     };
 
-    mockJsm = {
-      consumers: {
-        info: vi.fn(),
-        add: vi.fn(),
-      },
+    mockStream = {
+      getMessage: vi.fn(),
     };
 
-    mockJs = {
-      consumers: {
-        get: vi.fn(),
+    mockJsm = {
+      streams: {
+        info: vi.fn(),
+        get: vi.fn().mockResolvedValue(mockStream),
       },
     };
 
     vi.mocked(getJetStreamManager).mockReturnValue(mockJsm);
-    vi.mocked(getJetStreamClient).mockReturnValue(mockJs);
   });
 
-  it('should read messages from stream', async () => {
-    mockJsm.consumers.info.mockResolvedValue({});
+  it('should read messages from stream using direct access', async () => {
+    mockJsm.streams.info.mockResolvedValue({
+      state: { first_seq: 1, last_seq: 2, messages: 2 },
+    });
 
-    const mockMessages = [
-      { data: Buffer.from('message 1'), ack: vi.fn() },
-      { data: Buffer.from('message 2'), ack: vi.fn() },
-    ];
-
-    const mockIterator = (async function* () {
-      for (const msg of mockMessages) {
-        yield msg;
-      }
-    })();
-
-    const mockConsumer = {
-      fetch: vi.fn().mockResolvedValue(mockIterator),
-    };
-
-    mockJs.consumers.get.mockResolvedValue(mockConsumer);
+    mockStream.getMessage
+      .mockResolvedValueOnce({ data: new TextEncoder().encode('message 1') })
+      .mockResolvedValueOnce({ data: new TextEncoder().encode('message 2') });
 
     const result = await readMessages(mockChannel, 10);
 
     expect(result).toHaveLength(2);
     expect(result[0].data).toBe('message 1');
     expect(result[1].data).toBe('message 2');
-    expect(typeof result[0].ack).toBe('function');
-    expect(typeof result[1].ack).toBe('function');
   });
 
-  it('should respect message limit', async () => {
-    mockJsm.consumers.info.mockResolvedValue({});
-
-    const mockConsumer = {
-      fetch: vi.fn().mockResolvedValue((async function* () {})()),
-    };
-
-    mockJs.consumers.get.mockResolvedValue(mockConsumer);
-
-    await readMessages(mockChannel, 5);
-
-    expect(mockConsumer.fetch).toHaveBeenCalledWith({
-      max_messages: 5,
-      expires: 5000,
+  it('should return newest messages when limit is less than total', async () => {
+    // Stream has messages 1-100, we want last 5 (96-100)
+    mockJsm.streams.info.mockResolvedValue({
+      state: { first_seq: 1, last_seq: 100, messages: 100 },
     });
+
+    mockStream.getMessage
+      .mockResolvedValueOnce({ data: new TextEncoder().encode('msg 96') })
+      .mockResolvedValueOnce({ data: new TextEncoder().encode('msg 97') })
+      .mockResolvedValueOnce({ data: new TextEncoder().encode('msg 98') })
+      .mockResolvedValueOnce({ data: new TextEncoder().encode('msg 99') })
+      .mockResolvedValueOnce({ data: new TextEncoder().encode('msg 100') });
+
+    const result = await readMessages(mockChannel, 5);
+
+    expect(result).toHaveLength(5);
+    expect(result[0].data).toBe('msg 96');
+    expect(result[4].data).toBe('msg 100');
+    // Should start from seq 96 (100 - 5 + 1)
+    expect(mockStream.getMessage).toHaveBeenCalledWith({ seq: 96 });
   });
 
-  it('should return empty array when no messages available', async () => {
-    mockJsm.consumers.info.mockResolvedValue({});
+  it('should return empty array when stream has no messages', async () => {
+    mockJsm.streams.info.mockResolvedValue({
+      state: { first_seq: 0, last_seq: 0, messages: 0 },
+    });
 
-    const mockConsumer = {
-      fetch: vi.fn().mockRejectedValue(new Error('no messages')),
-    };
+    const result = await readMessages(mockChannel, 10);
 
-    mockJs.consumers.get.mockResolvedValue(mockConsumer);
+    expect(result).toEqual([]);
+    expect(mockStream.getMessage).not.toHaveBeenCalled();
+  });
+
+  it('should return empty array when stream does not exist', async () => {
+    mockJsm.streams.info.mockRejectedValue(new Error('stream not found'));
 
     const result = await readMessages(mockChannel, 10);
 
     expect(result).toEqual([]);
   });
 
-  it('should throw error for non-empty queue failures', async () => {
-    mockJsm.consumers.info.mockResolvedValue({});
-
-    const mockConsumer = {
-      fetch: vi.fn().mockRejectedValue(new Error('permission denied')),
-    };
-
-    mockJs.consumers.get.mockResolvedValue(mockConsumer);
+  it('should throw error for other failures', async () => {
+    mockJsm.streams.info.mockRejectedValue(new Error('permission denied'));
 
     await expect(readMessages(mockChannel, 10)).rejects.toThrow(
       'Failed to read messages from test-channel: permission denied'
     );
   });
 
-  it('should create consumer if it does not exist', async () => {
-    mockJsm.consumers.info.mockRejectedValue(new Error('consumer not found'));
-    mockJsm.consumers.add.mockResolvedValue({});
+  it('should skip gaps in sequence numbers (deleted messages)', async () => {
+    mockJsm.streams.info.mockResolvedValue({
+      state: { first_seq: 1, last_seq: 5, messages: 3 },
+    });
 
-    const mockConsumer = {
-      fetch: vi.fn().mockResolvedValue((async function* () {})()),
-    };
-
-    mockJs.consumers.get.mockResolvedValue(mockConsumer);
-
-    await readMessages(mockChannel, 10);
-
-    expect(mockJsm.consumers.add).toHaveBeenCalled();
-    expect(mockJs.consumers.get).toHaveBeenCalledWith('TEST_STREAM', 'TEST_STREAM_READER');
-  });
-
-  it('should provide working ack functions for messages', async () => {
-    mockJsm.consumers.info.mockResolvedValue({});
-
-    const mockAck1 = vi.fn();
-    const mockAck2 = vi.fn();
-
-    const mockMessages = [
-      { data: Buffer.from('msg1'), ack: mockAck1 },
-      { data: Buffer.from('msg2'), ack: mockAck2 },
-    ];
-
-    const mockIterator = (async function* () {
-      for (const msg of mockMessages) {
-        yield msg;
-      }
-    })();
-
-    const mockConsumer = {
-      fetch: vi.fn().mockResolvedValue(mockIterator),
-    };
-
-    mockJs.consumers.get.mockResolvedValue(mockConsumer);
+    mockStream.getMessage
+      .mockResolvedValueOnce({ data: new TextEncoder().encode('msg 1') })
+      .mockRejectedValueOnce(new Error('no message found')) // seq 2 deleted
+      .mockResolvedValueOnce({ data: new TextEncoder().encode('msg 3') })
+      .mockRejectedValueOnce(new Error('no message found')) // seq 4 deleted
+      .mockResolvedValueOnce({ data: new TextEncoder().encode('msg 5') });
 
     const result = await readMessages(mockChannel, 10);
 
-    result[0].ack();
-    result[1].ack();
-
-    expect(mockAck1).toHaveBeenCalled();
-    expect(mockAck2).toHaveBeenCalled();
+    expect(result).toHaveLength(3);
+    expect(result[0].data).toBe('msg 1');
+    expect(result[1].data).toBe('msg 3');
+    expect(result[2].data).toBe('msg 5');
   });
 
-  it('should convert Buffer data to string', async () => {
-    mockJsm.consumers.info.mockResolvedValue({});
+  it('should handle first_seq > 1 (old messages expired)', async () => {
+    // Messages 1-50 expired, only 51-100 remain
+    mockJsm.streams.info.mockResolvedValue({
+      state: { first_seq: 51, last_seq: 100, messages: 50 },
+    });
 
-    const mockMessages = [
-      { data: Buffer.from('Hello'), ack: vi.fn() },
-      { data: Buffer.from('World'), ack: vi.fn() },
-    ];
+    mockStream.getMessage
+      .mockResolvedValueOnce({ data: new TextEncoder().encode('msg 96') })
+      .mockResolvedValueOnce({ data: new TextEncoder().encode('msg 97') })
+      .mockResolvedValueOnce({ data: new TextEncoder().encode('msg 98') })
+      .mockResolvedValueOnce({ data: new TextEncoder().encode('msg 99') })
+      .mockResolvedValueOnce({ data: new TextEncoder().encode('msg 100') });
 
-    const mockIterator = (async function* () {
-      for (const msg of mockMessages) {
-        yield msg;
-      }
-    })();
+    const result = await readMessages(mockChannel, 5);
 
-    const mockConsumer = {
-      fetch: vi.fn().mockResolvedValue(mockIterator),
-    };
+    expect(result).toHaveLength(5);
+    // Should start from seq 96, not try to read below first_seq
+    expect(mockStream.getMessage).toHaveBeenCalledWith({ seq: 96 });
+  });
 
-    mockJs.consumers.get.mockResolvedValue(mockConsumer);
+  it('should respect first_seq when limit exceeds available messages', async () => {
+    // Only 3 messages available (seq 98-100), but limit is 10
+    mockJsm.streams.info.mockResolvedValue({
+      state: { first_seq: 98, last_seq: 100, messages: 3 },
+    });
+
+    mockStream.getMessage
+      .mockResolvedValueOnce({ data: new TextEncoder().encode('msg 98') })
+      .mockResolvedValueOnce({ data: new TextEncoder().encode('msg 99') })
+      .mockResolvedValueOnce({ data: new TextEncoder().encode('msg 100') });
 
     const result = await readMessages(mockChannel, 10);
 
-    expect(result[0].data).toBe('Hello');
-    expect(result[1].data).toBe('World');
+    expect(result).toHaveLength(3);
+    // Should start from first_seq (98), not go negative
+    expect(mockStream.getMessage).toHaveBeenCalledWith({ seq: 98 });
   });
 });
 

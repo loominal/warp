@@ -195,11 +195,7 @@ export async function handleReadMessages(
 
     // Parse and format messages
     const parsedMessages = rawMessages
-      .map((msg) => {
-        const parsed = parseMessage(msg.data);
-        msg.ack(); // Acknowledge after successful parse
-        return parsed;
-      })
+      .map((msg) => parseMessage(msg.data))
       .filter((msg): msg is NonNullable<typeof msg> => msg !== null);
 
     if (parsedMessages.length === 0) {
