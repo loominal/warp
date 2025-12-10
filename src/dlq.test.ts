@@ -19,15 +19,17 @@ import type { WorkItem } from './types.js';
 // Test utilities
 const TEST_NATS_URL = process.env.NATS_URL || 'nats://localhost:4222';
 
-// Counter for unique UUIDs
+// Use timestamp + random for truly unique test IDs across runs
+const testRunId = Date.now().toString(16).slice(-8);
 let uuidCounter = 0;
 
 function createTestWorkItem(capability: string, id?: string): WorkItem {
-  // Generate valid UUID v4 format
+  // Generate valid UUID v4 format with unique prefix per test run
   if (!id) {
     const counter = uuidCounter++;
-    const counterHex = counter.toString(16).padStart(12, '0');
-    id = `550e8400-e29b-41d4-a716-${counterHex}`;
+    const counterHex = counter.toString(16).padStart(4, '0');
+    // Format: xxxxxxxx-xxxx-4xxx-axxx-{testRunId}{counter}
+    id = `550e8400-e29b-41d4-a716-${testRunId}${counterHex}`;
   }
 
   return {
