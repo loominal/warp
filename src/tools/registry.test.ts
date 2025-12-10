@@ -50,6 +50,8 @@ describe('register_agent tool', () => {
       natsUrl: 'nats://localhost:4222',
       logging: { level: 'INFO', format: 'json' },
       projectPath: '/test/project/path',
+      projectId: 'a1b2c3d4e5f67890',
+      workQueue: { ackTimeoutMs: 30000, maxDeliveryAttempts: 3, deadLetterTTLMs: 86400000 },
     };
 
     // Setup default mocks
@@ -228,15 +230,15 @@ describe('register_agent tool', () => {
     it('should reuse GUID for offline agent with same handle', async () => {
       const existingGuid = '12345678-1234-4234-8234-123456789012';
 
-      // Calculate the projectId that will be generated from the config
-      const expectedProjectId = registry.generateProjectId(mockConfig.projectPath);
+      // Use the projectId from config (which is now explicit)
+      const expectedProjectId = mockConfig.projectId;
 
       const mockEntry = {
         guid: existingGuid,
         agentType: 'developer',
         handle: 'test-agent',
         hostname: hostname(),
-        projectId: expectedProjectId,  // Use the same projectId that will be generated
+        projectId: expectedProjectId,  // Use the same projectId from config
         natsUrl: 'nats://localhost:4222',
         capabilities: [],
         scope: 'project' as const,
@@ -850,6 +852,8 @@ describe('discover_agents tool', () => {
       natsUrl: 'nats://localhost:4222',
       logging: { level: 'INFO', format: 'json' },
       projectPath: '/test/project/path',
+      projectId: 'a1b2c3d4e5f67890',
+      workQueue: { ackTimeoutMs: 30000, maxDeliveryAttempts: 3, deadLetterTTLMs: 86400000 },
     };
 
     // Setup default mocks

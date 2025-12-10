@@ -270,6 +270,19 @@ export async function loadConfig(): Promise<ResolvedConfig> {
     userConfig?.workQueue?.deadLetterTTLMs ??
     DEFAULT_CONFIG.workQueue.deadLetterTTLMs;
 
+  // Project ID - can be explicitly set or derived from path
+  const explicitProjectId = process.env['LOOM_PROJECT_ID'];
+  const projectId = explicitProjectId ?? generateNamespace(resolvedProjectPath);
+
+  // Validate project ID format (16-char hex)
+  if (!/^[a-f0-9]{16}$/.test(projectId) && explicitProjectId) {
+    // If explicitly set but wrong format, generate one instead
+    logger.warn('Invalid LOOM_PROJECT_ID format, must be 16-char hex. Using generated ID.', {
+      provided: explicitProjectId,
+      generated: generateNamespace(resolvedProjectPath),
+    });
+  }
+
   const config: ResolvedConfig = {
     namespace,
     channels,
@@ -284,12 +297,15 @@ export async function loadConfig(): Promise<ResolvedConfig> {
       deadLetterTTLMs,
     },
     projectPath: resolvedProjectPath,
+    projectId: /^[a-f0-9]{16}$/.test(projectId) ? projectId : generateNamespace(resolvedProjectPath),
   };
 
   logger.info('Configuration loaded', {
     namespace: config.namespace,
     channelCount: config.channels.length,
     natsUrl: config.natsUrl,
+    projectId: config.projectId,
+    projectIdSource: explicitProjectId ? 'LOOM_PROJECT_ID env var' : 'derived from path',
   });
 
   return config;

@@ -2,7 +2,7 @@
 
 **The messaging backbone for Loom.**
 
-[![npm version](https://badge.fury.io/js/@loom/warp.svg)](https://www.npmjs.com/package/@loom/warp) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/) [![Docker](https://img.shields.io/badge/Docker-ghcr.io-blue.svg)](https://ghcr.io/mdlopresti/loom-warp)
 
 Warp is the foundational MCP server for [Loom](../README.md). It gives AI agents in Claude Code the ability to communicate across projects and machines via NATS JetStream — persistent, reliable messaging with 16 purpose-built tools.
 
@@ -51,64 +51,62 @@ nats-server -js
 
 ## Installation
 
-### Global Installation (Recommended)
+### Docker (Recommended)
+
+Docker is the preferred method for running Warp as an MCP server:
 
 ```bash
-npm install -g @loom/warp
-```
+# Pull the latest image
+docker pull ghcr.io/mdlopresti/loom-warp:latest
 
-### Project-Level Installation
-
-```bash
-npm install @loom/warp
-```
-
-### Run without Installation
-
-```bash
-npx @loom/warp
-```
-
-### Docker
-
-```bash
-# Build the Docker image
+# Or build locally
 docker build -t loom-warp:latest .
+```
 
-# Or pull from registry (when published)
-# docker pull ghcr.io/your-org/loom-warp:latest
+### NPM (Post-V1)
+
+> **Note**: NPM publishing (`@loom/warp`) is planned for after the V1 release. For now, use Docker.
+
+```bash
+# Coming post-V1
+npm install -g @loom/warp
 ```
 
 ## Configuration
 
 ### Claude Code MCP Configuration
 
-Add to your `~/.claude/mcp.json`:
+Add to your `~/.claude.json` (or `~/.claude/mcp.json`):
 
 ```json
 {
   "mcpServers": {
-    "loom": {
-      "command": "warp",
-      "env": {
-        "NATS_URL": "nats://localhost:4222"
-      }
+    "loom-warp": {
+      "type": "stdio",
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "NATS_URL=nats://localhost:4222",
+        "ghcr.io/mdlopresti/loom-warp:latest"
+      ]
     }
   }
 }
 ```
 
-### Docker Configuration
+For remote NATS servers, update the `NATS_URL` value:
 
 ```json
 {
   "mcpServers": {
-    "loom": {
+    "loom-warp": {
+      "type": "stdio",
       "command": "docker",
-      "args": ["run", "-i", "--rm", "--network=host", "loom-warp:latest"],
-      "env": {
-        "NATS_URL": "nats://localhost:4222"
-      }
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "NATS_URL=nats://your-nats-server:4222",
+        "ghcr.io/mdlopresti/loom-warp:latest"
+      ]
     }
   }
 }

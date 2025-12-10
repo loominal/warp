@@ -233,7 +233,10 @@ export function createRegistryEntry(params: {
   agentType: string;
   handle: string;
   hostname: string;
-  projectPath: string;
+  /** Project path - used to generate projectId if not explicitly provided */
+  projectPath?: string;
+  /** Explicit project ID - takes precedence over projectPath */
+  projectId?: string;
   natsUrl: string;
   username?: string;
   capabilities?: string[];
@@ -242,12 +245,22 @@ export function createRegistryEntry(params: {
 }): RegistryEntry {
   const now = new Date().toISOString();
 
+  // Use explicit projectId if provided, otherwise generate from projectPath
+  let resolvedProjectId: string;
+  if (params.projectId) {
+    resolvedProjectId = params.projectId;
+  } else if (params.projectPath) {
+    resolvedProjectId = generateProjectId(params.projectPath);
+  } else {
+    throw new Error('Either projectId or projectPath must be provided');
+  }
+
   const entry: RegistryEntry = {
     guid: randomUUID(),
     agentType: params.agentType,
     handle: params.handle,
     hostname: params.hostname,
-    projectId: generateProjectId(params.projectPath),
+    projectId: resolvedProjectId,
     natsUrl: params.natsUrl,
     capabilities: params.capabilities ?? [],
     scope: params.scope ?? 'project',

@@ -11,7 +11,7 @@ import { createRegistryEntry, isVisibleTo, redactEntry, type Requester } from '.
 import { initializeRegistry, putRegistryEntry, listRegistryEntries, getRegistryEntry } from '../kv.js';
 import { validateHandle } from './handle.js';
 import { startHeartbeat, stopHeartbeat } from '../heartbeat.js';
-import { createInboxStream, subscribeToInbox, unsubscribeFromInbox, getInboxSubject } from '../inbox.js';
+import { createInboxStream, subscribeToInbox, unsubscribeFromInbox, getInboxSubject, getInboxConsumerName } from '../inbox.js';
 import { getJetStreamClient, getJetStreamManager } from '../nats.js';
 import { createWorkQueueStream, publishWorkItem, getWorkQueueSubject, claimWorkItem } from '../workqueue.js';
 import { listDeadLetterItems, retryDeadLetterItem, discardDeadLetterItem } from '../dlq.js';
@@ -424,7 +424,7 @@ export async function handleRegisterAgent(
   const hostnameStr = hostname();
   const username = process.env['USER'] || process.env['USERNAME'];
   const natsUrl = config.natsUrl;
-  const projectPath = config.projectPath;
+  const projectId = config.projectId;
 
   // Initialize registry if not already done
   try {
@@ -439,14 +439,6 @@ export async function handleRegisterAgent(
   }
 
   // Check if we can reuse an existing offline agent
-  const projectId = createRegistryEntry({
-    agentType,
-    handle,
-    hostname: hostnameStr,
-    projectPath,
-    natsUrl,
-  }).projectId;
-
   const reusableGuid = await findReusableAgent(handle, projectId, hostnameStr);
 
   // Build entry params, conditionally including username
@@ -454,7 +446,7 @@ export async function handleRegisterAgent(
     agentType,
     handle,
     hostname: hostnameStr,
-    projectPath,
+    projectId,
     natsUrl,
     capabilities,
     scope,
@@ -1267,6 +1259,8 @@ export async function handleReadDirectMessages(
     const jsm = getJetStreamManager();
     const js = getJetStreamClient();
 
+    const consumerName = getInboxConsumerName(state.agentGuid);
+
     // Check if inbox stream exists
     try {
       await jsm.streams.info(streamName);
@@ -1281,8 +1275,8 @@ export async function handleReadDirectMessages(
       };
     }
 
-    // Create a consumer to fetch messages
-    const consumer = await js.consumers.get(streamName);
+    // Get the durable consumer for this inbox
+    const consumer = await js.consumers.get(streamName, consumerName);
 
     // Fetch messages
     const messages: InboxMessage[] = [];

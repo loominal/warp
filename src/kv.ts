@@ -161,8 +161,13 @@ export async function deleteRegistryEntry(guid: string): Promise<boolean> {
 export async function listRegistryEntries(
   filter?: (entry: RegistryEntry) => boolean
 ): Promise<RegistryEntry[]> {
-  const bucket = getBucket();
+  // Get a FRESH bucket view each time to avoid stale keys iteration
+  // This works around a NATS.js issue where cached KV views don't properly iterate new keys
+  const js = getConnection().jetstream();
+  const bucket = await js.views.kv(currentBucketName || DEFAULT_BUCKET_NAME);
   const entries: RegistryEntry[] = [];
+
+  logger.debug('listRegistryEntries called - using fresh bucket view', { bucketName: currentBucketName });
 
   try {
     const keys = await bucket.keys();

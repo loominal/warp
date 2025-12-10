@@ -62,6 +62,8 @@ export interface ResolvedConfig {
   };
   workQueue: Required<WorkQueueConfig>;
   projectPath: string;
+  /** Explicit project ID (from LOOM_PROJECT_ID env var) or derived from projectPath */
+  projectId: string;
 }
 
 /**

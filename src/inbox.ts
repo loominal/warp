@@ -3,7 +3,7 @@
  */
 
 import type { StreamConfig, ConsumerMessages } from 'nats';
-import { RetentionPolicy, StorageType } from 'nats';
+import { RetentionPolicy, StorageType, AckPolicy, DeliverPolicy } from 'nats';
 import { getJetStreamManager, getJetStreamClient } from './nats.js';
 import type { InboxMessage } from './types.js';
 import { createLogger } from './logger.js';
@@ -34,6 +34,11 @@ export function getInboxSubject(guid: string): string {
   return `${INBOX_SUBJECT_PREFIX}.${guid}`;
 }
 
+/** Consumer name for inbox */
+export function getInboxConsumerName(guid: string): string {
+  return `inbox_consumer_${guid.replace(/-/g, '_')}`;
+}
+
 /**
  * Create inbox stream for an agent (called on registration)
  * Stream name: INBOX_{guid} (replace hyphens with underscores)
@@ -44,6 +49,7 @@ export function getInboxSubject(guid: string): string {
 export async function createInboxStream(guid: string): Promise<void> {
   const jsm = getJetStreamManager();
   const streamName = `INBOX_${guid.replace(/-/g, '_')}`;
+  const consumerName = getInboxConsumerName(guid);
   const subject = getInboxSubject(guid);
 
   const streamConfig: Partial<StreamConfig> = {
@@ -60,14 +66,27 @@ export async function createInboxStream(guid: string): Promise<void> {
     // Try to get existing stream
     const existingStream = await jsm.streams.info(streamName).catch(() => null);
 
-    if (existingStream) {
+    if (!existingStream) {
+      // Create new stream
+      await jsm.streams.add(streamConfig);
+      logger.info('Created inbox stream', { stream: streamName, subject, guid });
+    } else {
       logger.debug('Inbox stream already exists', { stream: streamName, guid });
-      return;
     }
 
-    // Create new stream
-    await jsm.streams.add(streamConfig);
-    logger.info('Created inbox stream', { stream: streamName, subject, guid });
+    // Create or verify durable consumer exists
+    try {
+      await jsm.consumers.info(streamName, consumerName);
+      logger.debug('Inbox consumer already exists', { stream: streamName, consumer: consumerName });
+    } catch {
+      // Consumer doesn't exist, create it
+      await jsm.consumers.add(streamName, {
+        durable_name: consumerName,
+        ack_policy: AckPolicy.Explicit,
+        deliver_policy: DeliverPolicy.All,
+      });
+      logger.info('Created inbox consumer', { stream: streamName, consumer: consumerName, guid });
+    }
   } catch (err) {
     const error = err as Error;
     // Handle "already in use" error (race condition)
@@ -101,11 +120,12 @@ export async function subscribeToInbox(
 
   const js = getJetStreamClient();
   const streamName = `INBOX_${guid.replace(/-/g, '_')}`;
+  const consumerName = getInboxConsumerName(guid);
   const subject = getInboxSubject(guid);
 
   try {
-    // Create ordered consumer for real-time message delivery
-    const consumer = await js.consumers.get(streamName);
+    // Get the durable consumer for this inbox
+    const consumer = await js.consumers.get(streamName, consumerName);
     const messages = await consumer.consume();
 
     subscriptionState.guid = guid;
