@@ -89,8 +89,9 @@ describe('KV Store', () => {
   });
 
   describe('listRegistryEntries', () => {
-    it('should throw error when bucket not initialized', async () => {
-      await expect(listRegistryEntries()).rejects.toThrow('not initialized');
+    it('should throw error when not connected', async () => {
+      // listRegistryEntries now gets a fresh bucket view, which requires connection first
+      await expect(listRegistryEntries()).rejects.toThrow('Not connected to NATS');
     });
 
     it('should filter entries when filter provided', () => {
