@@ -1,9 +1,10 @@
 /**
  * NATS connection management with retry and graceful shutdown
+ * Supports both TCP (nats://) and WebSocket (wss://) transports
  */
 
 import {
-  connect,
+  connect as connectTcp,
   type NatsConnection,
   type JetStreamClient,
   type JetStreamManager,
@@ -14,39 +15,82 @@ import { createLogger } from './logger.js';
 const logger = createLogger('nats-connection');
 
 /**
+ * Transport type for NATS connection
+ */
+export type NatsTransport = 'tcp' | 'websocket';
+
+/**
  * Parsed NATS URL components
  */
-interface ParsedNatsUrl {
-  /** Server URL without credentials (e.g., "nats://host:4222") */
+export interface ParsedNatsUrl {
+  /** Server URL without credentials (e.g., "nats://host:4222" or "wss://host") */
   server: string;
   /** Username if present in URL */
   user?: string;
   /** Password if present in URL */
   pass?: string;
+  /** Transport type detected from URL scheme */
+  transport: NatsTransport;
+}
+
+/**
+ * Detect transport type from URL scheme
+ */
+export function detectTransport(url: string): NatsTransport {
+  const lowerUrl = url.toLowerCase();
+  if (lowerUrl.startsWith('wss://') || lowerUrl.startsWith('ws://')) {
+    return 'websocket';
+  }
+  return 'tcp';
 }
 
 /**
  * Parse a NATS URL that may contain credentials
  *
  * Supports formats:
- * - nats://host:port (no auth)
- * - nats://user:pass@host:port (with auth)
- * - nats://user@host:port (user only, password from env)
+ * - nats://host:port (TCP, no auth)
+ * - nats://user:pass@host:port (TCP with auth)
+ * - tls://host:port (TCP with TLS)
+ * - wss://host/path (WebSocket secure)
+ * - wss://user:pass@host/path (WebSocket with auth)
+ * - ws://host:port (WebSocket insecure)
  *
  * @param url - NATS URL to parse
- * @returns Parsed components with server URL and optional credentials
+ * @returns Parsed components with server URL, credentials, and transport type
  */
 export function parseNatsUrl(url: string): ParsedNatsUrl {
+  const transport = detectTransport(url);
+
   try {
-    // Handle nats:// protocol by temporarily replacing with http://
-    // since URL class doesn't recognize nats://
-    const normalizedUrl = url.replace(/^nats:\/\//, 'http://');
+    // Normalize URL for parsing
+    let normalizedUrl: string;
+    if (url.startsWith('nats://')) {
+      normalizedUrl = url.replace(/^nats:\/\//, 'http://');
+    } else if (url.startsWith('tls://')) {
+      normalizedUrl = url.replace(/^tls:\/\//, 'https://');
+    } else if (url.startsWith('wss://')) {
+      normalizedUrl = url.replace(/^wss:\/\//, 'https://');
+    } else if (url.startsWith('ws://')) {
+      normalizedUrl = url.replace(/^ws:\/\//, 'http://');
+    } else {
+      // Assume nats:// for bare host:port
+      normalizedUrl = `http://${url}`;
+    }
+
     const parsed = new URL(normalizedUrl);
 
     // Reconstruct the server URL without credentials
-    const server = `nats://${parsed.host}`;
+    let server: string;
+    if (transport === 'websocket') {
+      // For WebSocket, preserve the path
+      const protocol = url.toLowerCase().startsWith('ws://') ? 'ws' : 'wss';
+      server = `${protocol}://${parsed.host}${parsed.pathname}${parsed.search}`;
+    } else {
+      // For TCP, use nats:// scheme
+      server = `nats://${parsed.host}`;
+    }
 
-    const result: ParsedNatsUrl = { server };
+    const result: ParsedNatsUrl = { server, transport };
 
     // Extract credentials if present
     if (parsed.username) {
@@ -58,9 +102,29 @@ export function parseNatsUrl(url: string): ParsedNatsUrl {
 
     return result;
   } catch {
-    // If URL parsing fails, return as-is (e.g., for simple "localhost:4222")
-    return { server: url };
+    // If URL parsing fails, return as-is
+    return { server: url, transport };
   }
+}
+
+/**
+ * Initialize WebSocket shim for Node.js
+ * Must be called before using nats.ws
+ */
+async function initWebSocketShim(): Promise<void> {
+  // Dynamic import to avoid loading ws when using TCP
+  const ws = await import('ws');
+  (globalThis as unknown as { WebSocket: typeof ws.default }).WebSocket = ws.default;
+}
+
+/**
+ * Connect using WebSocket transport
+ */
+async function connectWebSocket(opts: ConnectionOptions): Promise<NatsConnection> {
+  await initWebSocketShim();
+  // Dynamic import nats.ws after shim is in place
+  const { connect: connectWs } = await import('nats.ws');
+  return connectWs(opts);
 }
 
 /** Connection state */
@@ -105,6 +169,12 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * Connect to NATS server with retry logic
+ *
+ * Supports both TCP and WebSocket transports:
+ * - TCP: nats://host:port, tls://host:port
+ * - WebSocket: wss://host/path, ws://host:port
+ *
+ * Transport is auto-detected from URL scheme.
  *
  * Supports optional authentication via:
  * 1. Credentials in URL: nats://user:pass@host:port
@@ -168,11 +238,17 @@ export async function connectToNats(natsUrl: string): Promise<void> {
     try {
       logger.info('Connecting to NATS', {
         url: parsed.server,
+        transport: parsed.transport,
         attempt: attempt + 1,
         authenticated: hasAuth,
       });
 
-      state.connection = await connect(connectOpts);
+      // Use appropriate transport based on URL scheme
+      if (parsed.transport === 'websocket') {
+        state.connection = await connectWebSocket(connectOpts);
+      } else {
+        state.connection = await connectTcp(connectOpts);
+      }
 
       // Set up connection event handlers
       setupConnectionHandlers(state.connection);
@@ -183,6 +259,7 @@ export async function connectToNats(natsUrl: string): Promise<void> {
 
       logger.info('Connected to NATS with JetStream', {
         url: parsed.server,
+        transport: parsed.transport,
         authenticated: hasAuth,
       });
       state.isConnecting = false;
@@ -191,6 +268,7 @@ export async function connectToNats(natsUrl: string): Promise<void> {
       const error = err as Error;
       logger.warn('Failed to connect to NATS', {
         error: error.message,
+        transport: parsed.transport,
         attempt: attempt + 1,
         maxRetries: RETRY_CONFIG.maxRetries,
       });
@@ -207,9 +285,12 @@ export async function connectToNats(natsUrl: string): Promise<void> {
   const authHint = hasAuth
     ? ' Check that credentials are correct.'
     : '';
+  const transportHint = parsed.transport === 'websocket'
+    ? ' For WebSocket, ensure NATS has websocket listener enabled.'
+    : '';
   throw new Error(
     `Failed to connect to NATS after ${RETRY_CONFIG.maxRetries} attempts. ` +
-      `Make sure NATS server with JetStream is running at ${parsed.server}.${authHint} ` +
+      `Make sure NATS server with JetStream is running at ${parsed.server}.${authHint}${transportHint} ` +
       'Start NATS with: nats-server -js'
   );
 }
