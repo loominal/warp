@@ -7,28 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0-beta] - 2025-12-11
+
+### Status: Beta Release
+
+This release marks the transition from Alpha to Beta. Core functionality has been thoroughly tested with 492 unit tests passing and 8 integration scenarios validated.
+
 ### Added
-- Documentation improvements for production deployments
-- Extended examples for agent discovery and work queue patterns
-- Performance tuning guides for high-throughput scenarios
-- Troubleshooting guide for common deployment issues
-- Community contribution guidelines
+- `claim_work` tool documentation with examples in README
+- Known Limitations section in README documenting current constraints
+- Beta status badge in README
 
 ### Changed
-- Improved error messages for better debugging
-- Enhanced logging output with structured logging support
-- Optimized message serialization for better performance
-- Updated dependencies to latest stable versions
+- Status upgraded from Alpha to Beta
+- README messaging updated to reflect Beta stability level
+- Tool count updated to 17 (added claim_work documentation)
 
-### Fixed
-- Connection stability improvements under high load
-- Memory leak fixes in long-running agents
-- DLQ processing improvements for failed work items
+### Tested
+- **Direct Messaging (REQ-DM)**: 5/5 test cases passed
+  - Online message delivery
+  - Offline message queuing
+  - Message filtering by type
+  - Message filtering by sender
+  - Message ordering verification
+- **Dead Letter Queue (REQ-DLQ)**: 5/5 test cases passed
+  - Work moves to DLQ after max attempts
+  - DLQ listing with correct metadata
+  - Retry functionality
+  - Attempt counter reset
+  - Permanent discard
+- **Registry Advanced (REQ-REG)**: 5/6 test cases passed
+  - Presence status updates
+  - Task count updates
+  - Private agent visibility
+  - User-only visibility
+  - Public cross-project visibility
+  - (Heartbeat timeout deferred to Weft coordinator)
+- **Configuration (REQ-CFG)**: 3/3 test cases passed
+  - Custom channels via config file
+  - Custom retention policies
+  - Environment variable overrides
 
 ### Security
-- Additional input validation for message handling
-- Rate limiting for API endpoints
-- Enhanced audit logging capabilities
+- npm audit: 0 high/critical vulnerabilities
+- 6 moderate vulnerabilities in dev dependencies only (vitest/vite/esbuild)
+- No production runtime security issues
+
+### Known Limitations
+- Stale agent detection requires Weft coordinator
+- Work queue may return 503 under extreme load
+- NATS clustering not yet tested
+- Rapid concurrent publishes may have slight ordering variations
 
 ## [1.0.0] - 2025-12-08
 
@@ -98,5 +127,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Work queue usage examples
 - Deployment guide for Kubernetes and Docker
 
-[Unreleased]: https://github.com/mdlopresti/loom-warp/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/mdlopresti/loom-warp/compare/v1.3.0-beta...HEAD
+[1.3.0-beta]: https://github.com/mdlopresti/loom-warp/compare/v1.0.0...v1.3.0-beta
 [1.0.0]: https://github.com/mdlopresti/loom-warp/releases/tag/v1.0.0

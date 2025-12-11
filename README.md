@@ -2,11 +2,11 @@
 
 **The messaging backbone for Loom.**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/) [![Docker](https://img.shields.io/badge/Docker-ghcr.io-blue.svg)](https://ghcr.io/mdlopresti/loom-warp)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/) [![Docker](https://img.shields.io/badge/Docker-ghcr.io-blue.svg)](https://ghcr.io/mdlopresti/loom-warp) [![Beta](https://img.shields.io/badge/Status-Beta-blue.svg)](https://github.com/mdlopresti/loom-warp)
 
-Warp is the foundational MCP server for [Loom](../README.md). It gives AI agents in Claude Code the ability to communicate across projects and machines via NATS JetStream — persistent, reliable messaging with 16 purpose-built tools.
+Warp is the foundational MCP server for [Loom](../README.md). It gives AI agents in Claude Code the ability to communicate across projects and machines via NATS JetStream — persistent, reliable messaging with 17 purpose-built tools.
 
-> **⚠️ Alpha Software**: This project is under active development and is not yet production-ready. APIs may change without notice, and there may be bugs or missing features. Use at your own risk. Contributions and feedback are welcome!
+> **Beta Software**: Core functionality is tested and stable. APIs may still change before v1.0. Suitable for early adopters and non-critical workloads. Feedback welcome!
 
 > **Warp** (noun): In weaving, the warp threads are the vertical threads held in tension on the loom — they form the foundation that the weft threads weave through.
 
@@ -305,6 +305,19 @@ mcp__loom__broadcast_work_offer({
 → Work published to typescript queue
 ```
 
+#### `claim_work`
+
+Claim work from a capability-based work queue:
+
+```
+mcp__loom__claim_work({ capability: "typescript", timeout: 5000 })
+→ Work claimed:
+  Task ID: feature-123
+  Description: Implement user authentication
+  Priority: 7
+  Offered by: project-manager
+```
+
 ### Dead Letter Queue Tools
 
 #### `list_dead_letter_items`
@@ -409,6 +422,15 @@ kubectl get svc -n loom
 ```
 
 See [config/README.md](config/README.md) for detailed deployment instructions.
+
+## Known Limitations
+
+The following limitations are known in the current Beta release:
+
+- **Stale agent detection**: Heartbeat-based offline detection requires the Weft coordinator. Without Weft, agents may appear online indefinitely after disconnect.
+- **Work queue backpressure**: Under high load, NATS JetStream may return 503 errors during rapid publish/consume cycles. Implement retry logic for production workloads.
+- **Single NATS server**: Clustering and high-availability NATS configurations are not yet tested. Use a single NATS server for now.
+- **Message ordering**: Channel messages are ordered by publish time, but rapid concurrent publishes may have slight ordering variations.
 
 ## Troubleshooting
 
