@@ -24,6 +24,7 @@ export default [
         TextEncoder: 'readonly',
         crypto: 'readonly',
         NodeJS: 'readonly',
+        URL: 'readonly',
       },
     },
     plugins: {
