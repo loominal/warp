@@ -59,7 +59,7 @@ jobs:
       - name: Run Warp MCP server test
         env:
           NATS_URL: ${{ secrets.NATS_URL }}
-          LOOM_PROJECT_ID: github-actions-test
+          LOOM_PROJECT_ID: abcd1234abcd1234
         run: |
           echo "Starting Warp MCP server to verify NATS connection..."
           echo "NATS URL configured: $(echo $NATS_URL | sed 's/:.*@/:***@/')"
@@ -87,4 +87,4 @@ jobs:
 
           echo ""
           echo "✓ Warp MCP server connected and sent test message to NATS"
-          echo "Message sent to 'errors' channel in project '$LOOM_PROJECT_ID': $TEST_MSG"
+          echo "Message sent to 'errors' channel in project 'abcd1234abcd1234': $TEST_MSG"
