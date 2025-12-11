@@ -63,14 +63,24 @@ jobs:
           echo "Starting Warp MCP server to verify NATS connection..."
           echo "NATS URL configured: $(echo $NATS_URL | sed 's/:.*@/:***@/')"
 
-          # Run Warp in Docker to test connectivity
-          # The MCP server will connect to NATS on startup
-          # We send a minimal MCP initialize request to trigger the connection
-          echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | \
-          timeout 30 docker run -i --rm \
+          # Generate a unique test message with timestamp and run ID
+          TEST_MSG="GitHub Actions test from run ${{ github.run_id }} at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "Test message: $TEST_MSG"
+
+          # Create MCP request sequence:
+          # 1. Initialize the MCP server
+          # 2. Set handle for this agent
+          # 3. Send a test message to the 'errors' channel (using errors as a test channel)
+          cat << MCPEOF | timeout 30 docker run -i --rm \
             -e "NATS_URL=$NATS_URL" \
             -e "LOG_LEVEL=DEBUG" \
-            ghcr.io/mdlopresti/loom-warp:latest 2>&1 | head -100
+            ghcr.io/mdlopresti/loom-warp:latest 2>&1
+          {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"github-actions-test","version":"1.0"}}}
+          {"jsonrpc":"2.0","method":"notifications/initialized"}
+          {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"set_handle","arguments":{"handle":"github-actions-${{ github.run_id }}"}}}
+          {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"send_message","arguments":{"channel":"errors","message":"$TEST_MSG"}}}
+          MCPEOF
 
           echo ""
-          echo "✓ Warp MCP server connected successfully to NATS"
+          echo "✓ Warp MCP server connected and sent test message to NATS"
+          echo "Message sent to 'errors' channel: $TEST_MSG"
