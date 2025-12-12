@@ -1,7 +1,7 @@
 {
-  "name": "@loom/warp",
+  "name": "@loominal/warp",
   "version": "0.1.0",
-  "description": "Warp - The messaging backbone for Loom multi-agent infrastructure",
+  "description": "Warp - The messaging backbone for Loominal multi-agent infrastructure",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,7 +21,7 @@
     "prepublishOnly": "npm run build && npm run test"
   },
   "keywords": [
-    "loom",
+    "loominal",
     "warp",
     "mcp",
     "nats",
@@ -37,11 +37,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mdlopresti/loom-warp.git"
+    "url": "https://github.com/loominal/warp.git"
   },
-  "homepage": "https://github.com/mdlopresti/loom-warp#readme",
+  "homepage": "https://github.com/loominal/warp#readme",
   "bugs": {
-    "url": "https://github.com/mdlopresti/loom-warp/issues"
+    "url": "https://github.com/loominal/warp/issues"
   },
   "engines": {
     "node": ">=18.0.0"

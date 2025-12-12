@@ -1,10 +1,10 @@
 # Warp
 
-**The messaging backbone for Loom.**
+**The messaging backbone for Loominal.**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/) [![Docker](https://img.shields.io/badge/Docker-ghcr.io-blue.svg)](https://ghcr.io/mdlopresti/loom-warp) [![Beta](https://img.shields.io/badge/Status-Beta-blue.svg)](https://github.com/mdlopresti/loom-warp)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/) [![Docker](https://img.shields.io/badge/Docker-ghcr.io-blue.svg)](https://ghcr.io/loominal/warp) [![Beta](https://img.shields.io/badge/Status-Beta-blue.svg)](https://github.com/loominal/warp)
 
-Warp is the foundational MCP server for [Loom](../README.md). It gives AI agents in Claude Code the ability to communicate across projects and machines via NATS JetStream — persistent, reliable messaging with 17 purpose-built tools.
+Warp is the foundational MCP server for [Loominal](../README.md). It gives AI agents in Claude Code the ability to communicate across projects and machines via NATS JetStream — persistent, reliable messaging with 17 purpose-built tools.
 
 > **Beta Software**: Core functionality is tested and stable. APIs may still change before v1.0. Suitable for early adopters and non-critical workloads. Feedback welcome!
 
@@ -57,16 +57,16 @@ Docker is the preferred method for running Warp as an MCP server:
 
 ```bash
 # Pull the latest image
-docker pull ghcr.io/mdlopresti/loom-warp:latest
+docker pull ghcr.io/loominal/warp:latest
 
 # Or build locally
-docker build -t loom-warp:latest .
+docker build -t loominal-warp:latest .
 ```
 
 ### NPM
 
 ```bash
-npm install -g @loom/warp
+npm install -g @loominal/warp
 ```
 
 ## Configuration
@@ -78,13 +78,13 @@ Add to your Claude Code settings (`~/.claude/settings.json`):
 ```json
 {
   "mcpServers": {
-    "loom-warp": {
+    "loominal-warp": {
       "type": "stdio",
       "command": "docker",
       "args": [
         "run", "-i", "--rm",
         "-e", "NATS_URL=nats://localhost:4222",
-        "ghcr.io/mdlopresti/loom-warp:latest"
+        "ghcr.io/loominal/warp:latest"
       ]
     }
   }
@@ -96,13 +96,13 @@ For remote NATS servers, update the `NATS_URL` value:
 ```json
 {
   "mcpServers": {
-    "loom-warp": {
+    "loominal-warp": {
       "type": "stdio",
       "command": "docker",
       "args": [
         "run", "-i", "--rm",
         "-e", "NATS_URL=nats://your-nats-server:4222",
-        "ghcr.io/mdlopresti/loom-warp:latest"
+        "ghcr.io/loominal/warp:latest"
       ]
     }
   }
@@ -111,7 +111,7 @@ For remote NATS servers, update the `NATS_URL` value:
 
 ### Project Configuration
 
-Create a `.loom-config.json` in your project root:
+Create a `.loominal-config.json` in your project root:
 
 ```json
 {
@@ -256,10 +256,10 @@ To run a complete Claude Code agent in GitHub Actions:
     cat > ~/.claude/mcp.json << 'EOF'
     {
       "mcpServers": {
-        "loom-warp": {
+        "loominal-warp": {
           "type": "stdio",
           "command": "docker",
-          "args": ["run", "-i", "--rm", "-e", "NATS_URL", "ghcr.io/mdlopresti/loom-warp:latest"]
+          "args": ["run", "-i", "--rm", "-e", "NATS_URL", "ghcr.io/loominal/warp:latest"]
         }
       }
     }
@@ -293,7 +293,7 @@ Point all Warp instances to the same NATS URL:
 ```json
 {
   "mcpServers": {
-    "loom": {
+    "loominal": {
       "command": "warp",
       "env": {
         "NATS_URL": "nats://your-shared-nats-server:4222"
@@ -325,8 +325,8 @@ Deploy NATS with JetStream for production multi-computer setups.
 kubectl apply -f config/
 
 # Verify
-kubectl get pods -n loom
-kubectl get svc -n loom
+kubectl get pods -n loominal
+kubectl get svc -n loominal
 ```
 
 See [config/README.md](config/README.md) for detailed deployment instructions.
@@ -401,10 +401,10 @@ npm run test:coverage
 
 ## Related
 
-- [Loom](https://github.com/mdlopresti/loom) — Multi-agent infrastructure
-- [Weft](https://github.com/mdlopresti/loom-weft) — Work coordinator
-- [Pattern](https://github.com/mdlopresti/loom-pattern) — Agent memory
-- [Shuttle](https://github.com/mdlopresti/loom-shuttle) — Fleet management CLI
+- [Loominal](https://github.com/loominal/loominal) — Multi-agent infrastructure
+- [Weft](https://github.com/loominal/weft) — Work coordinator
+- [Pattern](https://github.com/loominal/pattern) — Agent memory
+- [Shuttle](https://github.com/loominal/shuttle) — Fleet management CLI
 
 ## License
 

@@ -1,11 +1,11 @@
-# Docker Compose for Loom Warp Development
+# Docker Compose for Loominal Warp Development
 # Brings up NATS with JetStream for local testing
 
 services:
   # NATS Server with JetStream
   nats:
     image: nats:2.10-alpine
-    container_name: loom-warp
+    container_name: loominal-nats
     command:
       - "-js"                    # Enable JetStream
       - "-sd"                    # Store directory
@@ -39,4 +39,4 @@ volumes:
 # Network configuration
 networks:
   default:
-    name: loom-network
+    name: loominal-network
