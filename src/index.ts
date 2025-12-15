@@ -16,7 +16,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { loadConfig, getInternalChannels } from './config.js';
-import { connectToNats, setupShutdownHandlers, isConnected } from './nats.js';
+import { connectToNats, setupShutdownHandlers, isConnected, getConnection } from './nats.js';
 import { ensureAllStreams } from './streams.js';
 import {
   handleTools,
@@ -43,6 +43,7 @@ import {
 } from './tools/index.js';
 import type { SessionState, InternalChannel, ResolvedConfig } from './types.js';
 import { createLogger, configureLogger } from './logger.js';
+import { initializeIdentity } from './identity.js';
 
 const logger = createLogger('server');
 
@@ -56,6 +57,7 @@ const sessionState: SessionState = {
   handle: null,
   agentGuid: null,
   registeredEntry: null,
+  identity: null,
 };
 
 /**
@@ -90,6 +92,16 @@ async function ensureNatsReady(): Promise<void> {
   if (!isConnected()) {
     await connectToNats(config.natsUrl);
     await ensureAllStreams(channels);
+
+    // Initialize identity after NATS connection is established
+    if (!sessionState.identity) {
+      const nc = getConnection();
+      sessionState.identity = await initializeIdentity(nc, config.projectId, config.projectPath);
+      logger.info('Agent identity initialized', {
+        agentId: sessionState.identity.agentId,
+        isSubagent: sessionState.identity.isSubagent,
+      });
+    }
   }
 }
 
@@ -177,7 +189,7 @@ async function runServer(): Promise<void> {
   const server = new Server(
     {
       name: 'loom-warp',
-      version: '1.2.0',
+      version: '0.2.0',
     },
     {
       capabilities: {

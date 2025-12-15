@@ -31,6 +31,19 @@ Warp is the foundational MCP server for [Loominal](../README.md). It gives AI ag
 - **Dead Letter Queue** captures failed work for debugging and retry
 - **Automatic Retries** with configurable attempt limits
 
+### Unified Agent Identity
+- **Stable IDs** derived from hostname + project path (same computer + same folder = same agent)
+- **Sub-agent hierarchy** with parent-child relationships
+- **Cross-restart persistence** via NATS KV storage
+
+## Agent Identity
+
+### Agent Identity
+- **Persistent identity**: Root agents get stable IDs derived from hostname + project path
+- **Sub-agent support**: Sub-agents derive IDs from parent ID + type
+- **Identity storage**: Agent identities stored in NATS KV for cross-restart persistence
+- **Automatic initialization**: Identity is established on first startup and reused thereafter
+
 ## Prerequisites
 
 - Node.js 18 or later
@@ -180,6 +193,9 @@ claim_work({ capability: "typescript" })
 | `NATS_USER` | (none) | Username for NATS authentication (fallback if not in URL) |
 | `NATS_PASS` | (none) | Password for NATS authentication (fallback if not in URL) |
 | `MCP_PROJECT_PATH` | Current directory | Override project path for config discovery |
+| `LOOMINAL_PROJECT_ID` | (derived from path) | Project identifier for isolation |
+| `LOOMINAL_AGENT_ID` | (derived from hostname + path) | Manual agent ID override for multi-machine scenarios |
+| `LOOMINAL_SUBAGENT_TYPE` | (none) | Set when running as a sub-agent (e.g., "explore", "plan") |
 | `LOG_LEVEL` | `INFO` | Logging level (DEBUG, INFO, WARN, ERROR) |
 | `WORKQUEUE_ACK_TIMEOUT` | `300000` | Work acknowledgment timeout (ms) |
 | `WORKQUEUE_MAX_ATTEMPTS` | `3` | Max delivery attempts before DLQ |

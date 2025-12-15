@@ -265,7 +265,7 @@ describe('register_agent tool', () => {
 
       expect(result.isError).toBeUndefined();
       expect(sessionState.agentGuid).toBe(existingGuid);
-      expect(result.content[0]?.text).toContain('Reused GUID from previous offline agent');
+      expect(result.content[0]?.text).toContain('Using fallback GUID');
     });
 
     it('should create new GUID if no offline agent matches', async () => {
@@ -278,7 +278,7 @@ describe('register_agent tool', () => {
       const result = await handleRegisterAgent(args, sessionState, mockConfig);
 
       expect(result.isError).toBeUndefined();
-      expect(result.content[0]?.text).toContain('New GUID generated');
+      expect(result.content[0]?.text).toContain('Using fallback GUID');
     });
 
     it('should create new GUID if existing agent is online', async () => {
@@ -316,7 +316,7 @@ describe('register_agent tool', () => {
 
       expect(result.isError).toBeUndefined();
       expect(sessionState.agentGuid).not.toBe(mockEntry.guid);
-      expect(result.content[0]?.text).toContain('New GUID generated');
+      expect(result.content[0]?.text).toContain('Using fallback GUID');
     });
   });
 

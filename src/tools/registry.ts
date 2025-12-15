@@ -438,8 +438,27 @@ export async function handleRegisterAgent(
     };
   }
 
-  // Check if we can reuse an existing offline agent
-  const reusableGuid = await findReusableAgent(handle, projectId, hostnameStr);
+  // Use identity-derived agent ID if available, otherwise check for reusable GUID
+  let guid: string;
+  if (state.identity) {
+    // Use stable identity-derived agent ID
+    guid = state.identity.agentId;
+    logger.info('Using identity-derived agent ID', {
+      agentId: guid,
+      isSubagent: state.identity.isSubagent,
+    });
+  } else {
+    // Fallback to reusable GUID logic (for backward compatibility)
+    const reusableGuid = await findReusableAgent(handle, projectId, hostnameStr);
+    if (reusableGuid) {
+      guid = reusableGuid;
+      logger.info('Reusing existing offline agent GUID', { guid });
+    } else {
+      // Generate new random GUID as last resort
+      guid = randomUUID();
+      logger.warn('No identity available, generated random GUID', { guid });
+    }
+  }
 
   // Build entry params, conditionally including username
   const entryParams = {
@@ -454,16 +473,9 @@ export async function handleRegisterAgent(
     ...(username ? { username } : {}),
   };
 
-  let entry: RegistryEntry;
-  if (reusableGuid) {
-    // Reuse existing GUID and create updated entry
-    entry = createRegistryEntry(entryParams);
-    // Override the GUID with the reusable one
-    entry = { ...entry, guid: reusableGuid };
-  } else {
-    // Create new entry with new GUID
-    entry = createRegistryEntry(entryParams);
-  }
+  // Create entry with the determined GUID
+  let entry = createRegistryEntry(entryParams);
+  entry = { ...entry, guid };
 
   // Publish to KV store
   try {
@@ -530,6 +542,12 @@ export async function handleRegisterAgent(
   }
 
   // Build response message
+  const identityNote = state.identity
+    ? state.identity.isSubagent
+      ? `Note: Using stable sub-agent ID (type: ${state.identity.subagentType})`
+      : 'Note: Using stable root agent ID (derived from hostname + project path)'
+    : 'Note: Using fallback GUID (identity system not initialized)';
+
   const summary = [
     'Agent registered successfully!',
     '',
@@ -542,9 +560,7 @@ export async function handleRegisterAgent(
     `Visibility: ${entry.visibility}`,
     `Capabilities: ${entry.capabilities.length > 0 ? entry.capabilities.join(', ') : 'none'}`,
     '',
-    reusableGuid
-      ? 'Note: Reused GUID from previous offline agent with same handle'
-      : 'Note: New GUID generated for this registration',
+    identityNote,
     '',
     'Heartbeat: Automatic heartbeat started (60 second interval)',
     `Inbox: Personal inbox created at subject global.agent.${entry.guid}`,

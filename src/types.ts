@@ -135,7 +135,55 @@ export interface SessionState {
   handle: string | null;
   agentGuid: string | null;
   registeredEntry: RegistryEntry | null;
+  /** Agent identity (root or sub-agent), initialized at startup */
+  identity: AgentIdentity | null;
 }
+
+/**
+ * Root agent identity for v0.2.0 unified identity management
+ *
+ * Root agents have stable identities derived from hostname + projectPath.
+ * The agentId is deterministic, ensuring the same root agent always gets
+ * the same ID across restarts.
+ */
+export interface RootIdentity {
+  /** Deterministic ID: sha256(hostname + projectPath).substring(0, 32) */
+  agentId: string;
+  /** Machine hostname from os.hostname() */
+  hostname: string;
+  /** Resolved absolute project path */
+  projectPath: string;
+  /** ISO 8601 timestamp of when this identity was created */
+  createdAt: string;
+}
+
+/**
+ * Sub-agent identity for v0.2.0 unified identity management
+ *
+ * Sub-agents are spawned by root agents for specialized tasks.
+ * Their IDs are derived from the parent's ID + subagent type, ensuring
+ * consistent identification of sub-agent roles.
+ */
+export interface SubagentIdentity {
+  /** Deterministic ID: sha256(rootAgentId + subagentType).substring(0, 32) */
+  agentId: string;
+  /** Root agent's ID (parent) */
+  parentId: string;
+  /** Sub-agent type identifier (e.g., "explore", "plan", "general-purpose") */
+  subagentType: string;
+  /** ISO 8601 timestamp of when this identity was created */
+  createdAt: string;
+}
+
+/**
+ * Unified agent identity type
+ *
+ * Discriminated union that represents either a root agent or a sub-agent.
+ * Use the `isSubagent` field to determine which type it is.
+ */
+export type AgentIdentity =
+  | (RootIdentity & { isSubagent: false })
+  | (SubagentIdentity & { isSubagent: true });
 
 /**
  * Logger interface
