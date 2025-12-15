@@ -2,7 +2,7 @@
  * Tests for JetStream stream operations module
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
 import {
   ensureStream,
   ensureAllStreams,
@@ -31,8 +31,26 @@ vi.mock('./logger.js', () => ({
 // Import mocked modules
 import { getJetStreamManager, getJetStreamClient } from './nats.js';
 
+// Mock type interfaces
+interface MockJetStreamManager {
+  streams: {
+    info: Mock;
+    add: Mock;
+    update: Mock;
+    get: Mock;
+  };
+}
+
+interface MockJetStreamClient {
+  publish: Mock;
+}
+
+interface MockStream {
+  getMessage: Mock;
+}
+
 describe('ensureStream', () => {
-  let mockJsm: any;
+  let mockJsm: MockJetStreamManager;
   let mockChannel: InternalChannel;
 
   beforeEach(() => {
@@ -125,7 +143,7 @@ describe('ensureStream', () => {
 });
 
 describe('ensureAllStreams', () => {
-  let mockJsm: any;
+  let mockJsm: MockJetStreamManager;
   let mockChannels: InternalChannel[];
 
   beforeEach(() => {
@@ -184,7 +202,7 @@ describe('ensureAllStreams', () => {
   it('should process streams sequentially', async () => {
     const callOrder: string[] = [];
     mockJsm.streams.info.mockRejectedValue(new Error('stream not found'));
-    mockJsm.streams.add.mockImplementation(async (config: any) => {
+    mockJsm.streams.add.mockImplementation(async (config: { name: string }) => {
       callOrder.push(config.name);
       return {};
     });
@@ -197,7 +215,7 @@ describe('ensureAllStreams', () => {
 
 
 describe('publishMessage', () => {
-  let mockJs: any;
+  let mockJs: MockJetStreamClient;
   let mockChannel: InternalChannel;
 
   beforeEach(() => {
@@ -271,8 +289,8 @@ describe('publishMessage', () => {
 });
 
 describe('readMessages', () => {
-  let mockJsm: any;
-  let mockStream: any;
+  let mockJsm: MockJetStreamManager;
+  let mockStream: MockStream;
   let mockChannel: InternalChannel;
 
   beforeEach(() => {
@@ -427,7 +445,7 @@ describe('readMessages', () => {
 });
 
 describe('getStreamInfo', () => {
-  let mockJsm: any;
+  let mockJsm: MockJetStreamManager;
   let mockChannel: InternalChannel;
 
   beforeEach(() => {
