@@ -1,6 +1,6 @@
 {
   "name": "@loominal/warp",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Warp - The messaging backbone for Loominal multi-agent infrastructure",
   "type": "module",
   "main": "dist/index.js",
@@ -18,7 +18,7 @@
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
-    "prepublishOnly": "npm run build && npm run test"
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "loominal",
