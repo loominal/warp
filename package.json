@@ -47,7 +47,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@loominal/shared": "file:../weft/shared",
+    "@loominal/shared": "^0.2.0",
     "@modelcontextprotocol/sdk": "^1.0.4",
     "nats": "^2.28.2",
     "nats.ws": "^1.30.3",
