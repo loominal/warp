@@ -1,6 +1,6 @@
 {
   "name": "@loominal/warp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Warp - The messaging backbone for Loominal multi-agent infrastructure",
   "type": "module",
   "main": "dist/index.js",
