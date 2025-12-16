@@ -2,6 +2,7 @@
  * Message format and serialization
  */
 
+import type { LoominalScope } from '@loominal/shared/types';
 import type { MessagePayload } from './types.js';
 import { createLogger } from './logger.js';
 
@@ -10,11 +11,16 @@ const logger = createLogger('messages');
 /**
  * Create a message payload
  */
-export function createMessagePayload(handle: string, message: string): MessagePayload {
+export function createMessagePayload(
+  handle: string,
+  message: string,
+  scope?: LoominalScope
+): MessagePayload {
   return {
     handle,
     message,
     timestamp: new Date().toISOString(),
+    ...(scope ? { scope } : {}),
   };
 }
 
@@ -56,11 +62,18 @@ export function parseMessage(data: string): MessagePayload | null {
       return null;
     }
 
-    return {
+    const result: MessagePayload = {
       handle: payload['handle'],
       message: payload['message'],
       timestamp: payload['timestamp'],
     };
+
+    // Include scope if present
+    if (payload['scope'] && typeof payload['scope'] === 'string') {
+      result.scope = payload['scope'] as LoominalScope;
+    }
+
+    return result;
   } catch (err) {
     logger.warn('Failed to parse message JSON', { error: (err as Error).message });
     return null;

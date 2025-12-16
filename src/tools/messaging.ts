@@ -3,6 +3,7 @@
  */
 
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
+import type { LoominalScope } from '@loominal/shared/types';
 import type { InternalChannel, SessionState } from '../types.js';
 import { publishMessage, readMessages } from '../streams.js';
 import {
@@ -39,6 +40,11 @@ export function createMessagingTools(channels: InternalChannel[]): Tool[] {
           message: {
             type: 'string',
             description: 'The message content to send',
+          },
+          scope: {
+            type: 'string',
+            enum: ['private', 'personal', 'team', 'public'],
+            description: 'Scope of message (default: "team"). Channels are typically team-scoped.',
           },
         },
         required: ['channel', 'message'],
@@ -90,6 +96,7 @@ export async function handleSendMessage(
 
   const channelName = args['channel'] as string;
   const message = args['message'] as string;
+  const scope: LoominalScope = (args['scope'] as LoominalScope | undefined) ?? 'team';
 
   // Validate channel
   const channel = findChannel(channels, channelName);
@@ -119,7 +126,7 @@ export async function handleSendMessage(
 
   // Create and publish message
   try {
-    const payload = createMessagePayload(state.handle, message);
+    const payload = createMessagePayload(state.handle, message, scope);
     const serialized = serializeMessage(payload);
     await publishMessage(channel, serialized);
 

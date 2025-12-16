@@ -2,6 +2,8 @@
  * Type definitions for the NATS MCP Server
  */
 
+import type { LoominalScope } from '@loominal/shared/types';
+
 /**
  * Channel configuration as defined in .mcp-config.json
  */
@@ -113,6 +115,8 @@ export interface MessagePayload {
   message: string;
   /** ISO 8601 timestamp */
   timestamp: string;
+  /** Scope of the message (defaults to 'team' if not specified) */
+  scope?: LoominalScope;
 }
 
 /**
@@ -232,9 +236,12 @@ export interface RegistryEntry {
   // Capabilities
   capabilities: string[]; // e.g., ["typescript", "testing", "code-review"]
 
-  // Scope and visibility
-  scope: 'user' | 'project'; // user-level or project-level agent
-  visibility: 'private' | 'project-only' | 'user-only' | 'public';
+  // Scope (unified model)
+  scope: LoominalScope; // 'private' | 'personal' | 'team' | 'public'
+
+  // Legacy fields (deprecated, for backward compatibility)
+  /** @deprecated Use scope instead. Will be removed in v1.0 */
+  visibility?: 'private' | 'project-only' | 'user-only' | 'public';
 
   // Status
   status: 'online' | 'busy' | 'offline';
@@ -300,6 +307,8 @@ export interface WorkItem {
   offeredAt: string;
   /** Delivery attempt count */
   attempts: number;
+  /** Scope of the work item (defaults to 'team' if not specified) */
+  scope?: LoominalScope;
 }
 
 /**

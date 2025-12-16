@@ -185,6 +185,10 @@ async function runServer(): Promise<void> {
   // Set up graceful shutdown
   setupShutdownHandlers();
 
+  // Connect to NATS and initialize identity immediately on startup
+  // This ensures identity is available for other MCP servers (like Pattern) that depend on it
+  await ensureNatsReady();
+
   // Create MCP server
   const server = new Server(
     {

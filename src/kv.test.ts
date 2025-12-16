@@ -23,8 +23,7 @@ const mockRegistryEntry: RegistryEntry = {
   projectId: 'abc123',
   natsUrl: 'nats://localhost:4222',
   capabilities: ['typescript', 'testing'],
-  scope: 'project',
-  visibility: 'project-only',
+  scope: 'team',
   status: 'online',
   currentTaskCount: 0,
   registeredAt: new Date().toISOString(),
@@ -39,8 +38,7 @@ const mockRegistryEntry2: RegistryEntry = {
   projectId: 'abc123',
   natsUrl: 'nats://localhost:4222',
   capabilities: ['code-review'],
-  scope: 'project',
-  visibility: 'project-only',
+  scope: 'team',
   status: 'online',
   currentTaskCount: 1,
   registeredAt: new Date().toISOString(),
@@ -122,7 +120,6 @@ describe('KV Store', () => {
       expect(mockRegistryEntry.natsUrl).toBeDefined();
       expect(mockRegistryEntry.capabilities).toBeDefined();
       expect(mockRegistryEntry.scope).toBeDefined();
-      expect(mockRegistryEntry.visibility).toBeDefined();
       expect(mockRegistryEntry.status).toBeDefined();
       expect(mockRegistryEntry.currentTaskCount).toBeDefined();
       expect(mockRegistryEntry.registeredAt).toBeDefined();

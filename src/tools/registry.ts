@@ -5,6 +5,8 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { hostname } from 'os';
 import { randomUUID } from 'crypto';
+import type { LoominalScope } from '@loominal/shared/types';
+import { migrateLegacyVisibility } from '@loominal/shared/types';
 import type { SessionState, RegistryEntry, ResolvedConfig, InboxMessage, WorkItem } from '../types.js';
 import { createLogger } from '../logger.js';
 import { createRegistryEntry, isVisibleTo, redactEntry, type Requester } from '../registry.js';
@@ -47,15 +49,16 @@ export const registryTools: Tool[] = [
         },
         scope: {
           type: 'string',
-          enum: ['user', 'project'],
-          description: 'Scope of visibility: "user" for user-level, "project" for project-level (default: "project")',
+          enum: ['private', 'personal', 'team', 'public'],
+          description:
+            'Who can discover this agent: "private" (only self), "personal" (same user across projects), ' +
+            '"team" (same project), "public" (everyone). Default: "team"',
         },
         visibility: {
           type: 'string',
           enum: ['private', 'project-only', 'user-only', 'public'],
           description:
-            'Who can discover this agent: "private" (only self), "project-only" (same project), ' +
-            '"user-only" (same user), "public" (everyone). Default: "project-only"',
+            '[DEPRECATED] Use scope instead. Maps: private→private, user-only→personal, project-only→team, public→public',
         },
       },
       required: ['agentType'],
@@ -92,7 +95,7 @@ export const registryTools: Tool[] = [
         },
         scope: {
           type: 'string',
-          enum: ['user', 'project'],
+          enum: ['private', 'personal', 'team', 'public'],
           description: 'Filter by scope',
         },
         includeOffline: {
@@ -246,6 +249,11 @@ export const registryTools: Tool[] = [
           description: 'Optional application-specific context data for the task',
           additionalProperties: true,
         },
+        scope: {
+          type: 'string',
+          enum: ['private', 'personal', 'team', 'public'],
+          description: 'Scope of work item: determines which agents can claim it (default: "team")',
+        },
       },
       required: ['taskId', 'description', 'requiredCapability'],
     },
@@ -389,13 +397,23 @@ export async function handleRegisterAgent(
 ): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
   const agentType = args['agentType'] as string;
   const capabilities = (args['capabilities'] as string[] | undefined) ?? [];
-  const scope = (args['scope'] as 'user' | 'project' | undefined) ?? 'project';
-  const visibility = (args['visibility'] as
-    | 'private'
-    | 'project-only'
-    | 'user-only'
-    | 'public'
-    | undefined) ?? 'project-only';
+
+  // Handle scope parameter (new unified model) - default to 'team'
+  let scope: LoominalScope = 'team';
+  if (args['scope']) {
+    scope = args['scope'] as LoominalScope;
+  } else if (args['visibility']) {
+    // Migrate legacy visibility parameter
+    const legacyVisibility = args['visibility'] as 'private' | 'project-only' | 'user-only' | 'public';
+    const migratedScope = migrateLegacyVisibility(legacyVisibility);
+    if (migratedScope) {
+      scope = migratedScope;
+      logger.warn('Using deprecated visibility parameter, migrating to scope', {
+        visibility: legacyVisibility,
+        scope: migratedScope,
+      });
+    }
+  }
 
   // Validate agent type
   if (!agentType || agentType.trim() === '') {
@@ -469,7 +487,6 @@ export async function handleRegisterAgent(
     natsUrl,
     capabilities,
     scope,
-    visibility,
     ...(username ? { username } : {}),
   };
 
@@ -557,7 +574,6 @@ export async function handleRegisterAgent(
     `Hostname: ${entry.hostname}`,
     `Project ID: ${entry.projectId}`,
     `Scope: ${entry.scope}`,
-    `Visibility: ${entry.visibility}`,
     `Capabilities: ${entry.capabilities.length > 0 ? entry.capabilities.join(', ') : 'none'}`,
     '',
     identityNote,
@@ -859,7 +875,7 @@ export async function handleDiscoverAgents(
   const hostnameFilter = args['hostname'] as string | undefined;
   const projectId = args['projectId'] as string | undefined;
   const status = args['status'] as 'online' | 'busy' | 'offline' | undefined;
-  const scope = args['scope'] as 'user' | 'project' | undefined;
+  const scopeFilter = args['scope'] as LoominalScope | undefined;
   const includeOffline = (args['includeOffline'] as boolean | undefined) ?? false;
 
   // Initialize registry if not already done
@@ -927,8 +943,8 @@ export async function handleDiscoverAgents(
   }
 
   // Filter by scope
-  if (scope) {
-    filteredEntries = filteredEntries.filter((entry) => entry.scope === scope);
+  if (scopeFilter) {
+    filteredEntries = filteredEntries.filter((entry) => entry.scope === scopeFilter);
   }
 
   // Exclude offline agents by default
@@ -1430,6 +1446,7 @@ export async function handleBroadcastWorkOffer(
   const priority = (args['priority'] as number | undefined) ?? 5;
   const deadline = args['deadline'] as string | undefined;
   const contextData = args['contextData'] as Record<string, unknown> | undefined;
+  const scope: LoominalScope = (args['scope'] as LoominalScope | undefined) ?? 'team';
 
   // Validate required fields
   if (!taskId || taskId.trim() === '') {
@@ -1484,6 +1501,7 @@ export async function handleBroadcastWorkOffer(
     offeredBy: state.agentGuid,
     offeredAt: new Date().toISOString(),
     attempts: 0,
+    scope: scope,
   };
 
   // Add optional fields

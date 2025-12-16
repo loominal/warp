@@ -3,6 +3,8 @@
  */
 
 import { createHash, randomUUID } from 'crypto';
+import type { LoominalScope } from '@loominal/shared/types';
+import { isValidScope, migrateLegacyVisibility } from '@loominal/shared/types';
 import type { RegistryEntry } from './types.js';
 
 /**
@@ -87,18 +89,21 @@ export function validateRegistryEntry(entry: unknown): ValidationResult {
     }
   }
 
-  // Required fields - Scope and visibility
-  if (e.scope !== 'user' && e.scope !== 'project') {
-    errors.push('scope must be either "user" or "project"');
+  // Required field - Scope (unified model)
+  if (!isValidScope(e.scope)) {
+    errors.push('scope must be one of: "private", "personal", "team", "public"');
   }
 
-  if (
-    e.visibility !== 'private' &&
-    e.visibility !== 'project-only' &&
-    e.visibility !== 'user-only' &&
-    e.visibility !== 'public'
-  ) {
-    errors.push('visibility must be one of: "private", "project-only", "user-only", "public"');
+  // Optional legacy field - visibility (deprecated but tolerated during migration)
+  if (e.visibility !== undefined) {
+    if (
+      e.visibility !== 'private' &&
+      e.visibility !== 'project-only' &&
+      e.visibility !== 'user-only' &&
+      e.visibility !== 'public'
+    ) {
+      errors.push('visibility (deprecated) must be one of: "private", "project-only", "user-only", "public"');
+    }
   }
 
   // Required fields - Status
@@ -134,36 +139,41 @@ export function generateProjectId(projectPath: string): string {
 }
 
 /**
- * Check if agent should be visible to requester based on visibility rules
+ * Check if agent should be visible to requester based on scope rules
  * - private: Only the agent itself can see (guid match)
- * - project-only: Only agents in same project (projectId match)
- * - user-only: Only agents with same username AND hostname
+ * - personal: Only agents with same username (across all projects)
+ * - team: Only agents in same project (projectId match)
  * - public: All agents can see
+ *
+ * Also handles legacy visibility field for backward compatibility
  */
 export function isVisibleTo(entry: RegistryEntry, requester: Requester): boolean {
-  switch (entry.visibility) {
+  // Use scope if available (new unified model)
+  const scope = entry.scope;
+
+  switch (scope) {
     case 'private':
       // Only the agent itself
       return entry.guid === requester.guid;
 
-    case 'project-only':
-      // Same project
-      return entry.projectId === requester.projectId;
-
-    case 'user-only':
-      // Same username and hostname (must have username set)
+    case 'personal':
+      // Same username (user-only across projects)
       return (
         entry.username !== undefined &&
         requester.username !== undefined &&
         entry.username === requester.username
       );
 
+    case 'team':
+      // Same project
+      return entry.projectId === requester.projectId;
+
     case 'public':
       // Everyone can see
       return true;
 
     default:
-      // Unknown visibility - default to private
+      // Unknown scope - default to private
       return false;
   }
 }
@@ -204,13 +214,13 @@ export function redactEntry(
   }
 
   // Include hostname only for public or same-project agents
-  if (entry.visibility === 'public' || entry.projectId === requester.projectId) {
+  if (entry.scope === 'public' || entry.projectId === requester.projectId) {
     redacted.hostname = entry.hostname;
   }
 
-  // Include username only for user-only visibility with matching users
+  // Include username only for personal scope with matching users
   if (
-    entry.visibility === 'user-only' &&
+    entry.scope === 'personal' &&
     entry.username !== undefined &&
     requester.username !== undefined &&
     entry.username === requester.username
@@ -240,7 +250,8 @@ export function createRegistryEntry(params: {
   natsUrl: string;
   username?: string;
   capabilities?: string[];
-  scope?: 'user' | 'project';
+  scope?: LoominalScope;
+  /** @deprecated Use scope instead. Provided for backward compatibility */
   visibility?: 'private' | 'project-only' | 'user-only' | 'public';
 }): RegistryEntry {
   const now = new Date().toISOString();
@@ -255,6 +266,18 @@ export function createRegistryEntry(params: {
     throw new Error('Either projectId or projectPath must be provided');
   }
 
+  // Determine scope - prefer scope param, fallback to migrating visibility, default to 'team'
+  let resolvedScope: LoominalScope = 'team';
+  if (params.scope) {
+    resolvedScope = params.scope;
+  } else if (params.visibility) {
+    // Migrate legacy visibility to scope
+    const migratedScope = migrateLegacyVisibility(params.visibility);
+    if (migratedScope) {
+      resolvedScope = migratedScope;
+    }
+  }
+
   const entry: RegistryEntry = {
     guid: randomUUID(),
     agentType: params.agentType,
@@ -263,8 +286,7 @@ export function createRegistryEntry(params: {
     projectId: resolvedProjectId,
     natsUrl: params.natsUrl,
     capabilities: params.capabilities ?? [],
-    scope: params.scope ?? 'project',
-    visibility: params.visibility ?? 'project-only',
+    scope: resolvedScope,
     status: 'online',
     currentTaskCount: 0,
     registeredAt: now,

@@ -22,8 +22,7 @@ describe('validateRegistryEntry', () => {
     projectId: '1234567890abcdef',
     natsUrl: 'nats://localhost:4222',
     capabilities: ['typescript', 'testing'],
-    scope: 'project',
-    visibility: 'project-only',
+    scope: 'team',
     status: 'online',
     currentTaskCount: 0,
     registeredAt: '2025-12-07T12:00:00.000Z',
@@ -156,18 +155,15 @@ describe('validateRegistryEntry', () => {
       scope: 'invalid',
     });
     expect(result.valid).toBe(false);
-    expect(result.errors).toContain('scope must be either "user" or "project"');
+    expect(result.errors).toContain('scope must be one of: "private", "personal", "team", "public"');
   });
 
-  it('should reject invalid visibility', () => {
+  it('should accept entry without legacy visibility field', () => {
     const result = validateRegistryEntry({
       ...validEntry,
-      visibility: 'invalid',
     });
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain(
-      'visibility must be one of: "private", "project-only", "user-only", "public"'
-    );
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
   });
 
   it('should reject invalid status', () => {
@@ -225,7 +221,6 @@ describe('validateRegistryEntry', () => {
       natsUrl: 'http://bad',
       capabilities: 'not-array',
       scope: 'bad',
-      visibility: 'bad',
       status: 'bad',
       currentTaskCount: -1,
       registeredAt: 'bad',
@@ -276,8 +271,7 @@ describe('isVisibleTo', () => {
     natsUrl: 'nats://localhost:4222',
     username: 'testuser',
     capabilities: ['typescript'],
-    scope: 'project',
-    visibility: 'private',
+    scope: 'team',
     status: 'online',
     currentTaskCount: 0,
     registeredAt: '2025-12-07T12:00:00.000Z',
@@ -302,65 +296,63 @@ describe('isVisibleTo', () => {
     username: 'testuser',
   };
 
-  describe('private visibility', () => {
+  describe('private scope', () => {
+    const entry = { ...baseEntry, scope: 'private' as const };
+
     it('should be visible to self only', () => {
-      const entry = { ...baseEntry, visibility: 'private' as const };
       expect(isVisibleTo(entry, { ...sameProjectRequester, guid: entry.guid })).toBe(true);
     });
 
     it('should not be visible to others in same project', () => {
-      const entry = { ...baseEntry, visibility: 'private' as const };
       expect(isVisibleTo(entry, sameProjectRequester)).toBe(false);
     });
 
     it('should not be visible to different project', () => {
-      const entry = { ...baseEntry, visibility: 'private' as const };
       expect(isVisibleTo(entry, differentProjectRequester)).toBe(false);
     });
   });
 
-  describe('project-only visibility', () => {
+  describe('team scope', () => {
+    const entry = { ...baseEntry, scope: 'team' as const };
+
     it('should be visible to agents in same project', () => {
-      const entry = { ...baseEntry, visibility: 'project-only' as const };
       expect(isVisibleTo(entry, sameProjectRequester)).toBe(true);
     });
 
     it('should not be visible to different project', () => {
-      const entry = { ...baseEntry, visibility: 'project-only' as const };
       expect(isVisibleTo(entry, differentProjectRequester)).toBe(false);
     });
 
     it('should be visible to self', () => {
-      const entry = { ...baseEntry, visibility: 'project-only' as const };
       expect(isVisibleTo(entry, { ...sameProjectRequester, guid: entry.guid })).toBe(true);
     });
   });
 
-  describe('user-only visibility', () => {
+  describe('personal scope', () => {
+    const entry = { ...baseEntry, scope: 'personal' as const };
+
     it('should be visible to agents with same username', () => {
-      const entry = { ...baseEntry, visibility: 'user-only' as const };
       expect(isVisibleTo(entry, sameUserRequester)).toBe(true);
     });
 
     it('should not be visible to different username', () => {
-      const entry = { ...baseEntry, visibility: 'user-only' as const };
       expect(isVisibleTo(entry, sameProjectRequester)).toBe(false);
     });
 
-    it('should not be visible if username is undefined', () => {
-      const entry = { ...baseEntry, visibility: 'user-only' as const, username: undefined };
-      expect(isVisibleTo(entry, sameUserRequester)).toBe(false);
+    it('should not be visible if entry username is undefined', () => {
+      const entryWithoutUsername = { ...entry, username: undefined };
+      expect(isVisibleTo(entryWithoutUsername, sameUserRequester)).toBe(false);
     });
 
     it('should not be visible if requester username is undefined', () => {
-      const entry = { ...baseEntry, visibility: 'user-only' as const };
       expect(isVisibleTo(entry, { ...sameUserRequester, username: undefined })).toBe(false);
     });
   });
 
-  describe('public visibility', () => {
+  describe('public scope', () => {
+    const entry = { ...baseEntry, scope: 'public' as const };
+
     it('should be visible to everyone', () => {
-      const entry = { ...baseEntry, visibility: 'public' as const };
       expect(isVisibleTo(entry, sameProjectRequester)).toBe(true);
       expect(isVisibleTo(entry, differentProjectRequester)).toBe(true);
       expect(isVisibleTo(entry, sameUserRequester)).toBe(true);
@@ -378,8 +370,7 @@ describe('redactEntry', () => {
     natsUrl: 'nats://localhost:4222',
     username: 'testuser',
     capabilities: ['typescript', 'testing'],
-    scope: 'project',
-    visibility: 'project-only',
+    scope: 'team',
     status: 'online',
     currentTaskCount: 2,
     registeredAt: '2025-12-07T12:00:00.000Z',
@@ -399,20 +390,19 @@ describe('redactEntry', () => {
   };
 
   it('should return empty object if not visible', () => {
-    const entry = { ...baseEntry, visibility: 'private' as const };
-    const redacted = redactEntry(entry, sameProjectRequester);
+    const privateEntry = { ...baseEntry, scope: 'private' as const };
+    const redacted = redactEntry(privateEntry, sameProjectRequester);
     expect(redacted).toEqual({});
   });
 
   it('should return full entry for self', () => {
-    const entry = { ...baseEntry, visibility: 'private' as const };
     const selfRequester: Requester = {
-      guid: entry.guid,
-      projectId: entry.projectId,
-      username: entry.username,
+      guid: baseEntry.guid,
+      projectId: baseEntry.projectId,
+      username: baseEntry.username,
     };
-    const redacted = redactEntry(entry, selfRequester);
-    expect(redacted).toEqual(entry);
+    const redacted = redactEntry(baseEntry, selfRequester);
+    expect(redacted).toEqual(baseEntry);
   });
 
   it('should redact sensitive fields for same-project agents', () => {
@@ -433,28 +423,28 @@ describe('redactEntry', () => {
   });
 
   it('should not include projectId/natsUrl for different project', () => {
-    const entry = { ...baseEntry, visibility: 'public' as const };
-    const redacted = redactEntry(entry, differentProjectRequester);
+    const publicEntry = { ...baseEntry, scope: 'public' as const };
+    const redacted = redactEntry(publicEntry, differentProjectRequester);
     expect(redacted).toHaveProperty('guid');
     expect(redacted).toHaveProperty('hostname'); // public shows hostname
     expect(redacted).not.toHaveProperty('projectId');
     expect(redacted).not.toHaveProperty('natsUrl');
   });
 
-  it('should include username for user-only visibility with same user', () => {
-    const entry = { ...baseEntry, visibility: 'user-only' as const };
+  it('should include username for personal scope with same user', () => {
+    const personalEntry = { ...baseEntry, scope: 'personal' as const };
     const sameUserRequester: Requester = {
       guid: '423e4567-e89b-42d3-a456-426614174000',
       projectId: 'fedcba0987654321',
       username: 'testuser',
     };
-    const redacted = redactEntry(entry, sameUserRequester);
+    const redacted = redactEntry(personalEntry, sameUserRequester);
     expect(redacted).toHaveProperty('username', 'testuser');
   });
 
   it('should include hostname for public agents', () => {
-    const entry = { ...baseEntry, visibility: 'public' as const };
-    const redacted = redactEntry(entry, differentProjectRequester);
+    const publicEntry = { ...baseEntry, scope: 'public' as const };
+    const redacted = redactEntry(publicEntry, differentProjectRequester);
     expect(redacted).toHaveProperty('hostname', 'test-host');
   });
 });
@@ -538,8 +528,7 @@ describe('createRegistryEntry', () => {
     });
 
     expect(entry.capabilities).toEqual([]);
-    expect(entry.scope).toBe('project');
-    expect(entry.visibility).toBe('project-only');
+    expect(entry.scope).toBe('team');
     expect(entry.status).toBe('online');
     expect(entry.currentTaskCount).toBe(0);
     expect(entry.username).toBeUndefined();
@@ -554,14 +543,12 @@ describe('createRegistryEntry', () => {
       natsUrl: 'nats://localhost:4222',
       username: 'testuser',
       capabilities: ['typescript', 'testing'],
-      scope: 'user',
-      visibility: 'public',
+      scope: 'personal',
     });
 
     expect(entry.username).toBe('testuser');
     expect(entry.capabilities).toEqual(['typescript', 'testing']);
-    expect(entry.scope).toBe('user');
-    expect(entry.visibility).toBe('public');
+    expect(entry.scope).toBe('personal');
   });
 
   it('should set registeredAt and lastHeartbeat to same ISO timestamp', () => {

@@ -85,8 +85,7 @@ describe('register_agent tool', () => {
       const args = {
         agentType: 'reviewer',
         capabilities: ['typescript', 'testing'],
-        scope: 'project',
-        visibility: 'public',
+        scope: 'public',
       };
 
       const result = await handleRegisterAgent(args, sessionState, mockConfig);
@@ -95,8 +94,7 @@ describe('register_agent tool', () => {
       expect(result.content[0]?.text).toContain('Agent registered successfully');
       expect(result.content[0]?.text).toContain('Handle: custom-handle');
       expect(result.content[0]?.text).toContain('Agent Type: reviewer');
-      expect(result.content[0]?.text).toContain('Scope: project');
-      expect(result.content[0]?.text).toContain('Visibility: public');
+      expect(result.content[0]?.text).toContain('Scope: public');
       expect(result.content[0]?.text).toContain('Capabilities: typescript, testing');
     });
 
@@ -158,8 +156,7 @@ describe('register_agent tool', () => {
       const args = {
         agentType: 'reviewer',
         capabilities: ['code-review'],
-        scope: 'user',
-        visibility: 'user-only',
+        scope: 'personal',
       };
 
       await handleRegisterAgent(args, sessionState, mockConfig);
@@ -167,8 +164,7 @@ describe('register_agent tool', () => {
       expect(sessionState.registeredEntry).toBeTruthy();
       expect(sessionState.registeredEntry?.agentType).toBe('reviewer');
       expect(sessionState.registeredEntry?.capabilities).toEqual(['code-review']);
-      expect(sessionState.registeredEntry?.scope).toBe('user');
-      expect(sessionState.registeredEntry?.visibility).toBe('user-only');
+      expect(sessionState.registeredEntry?.scope).toBe('personal');
     });
   });
 
@@ -240,8 +236,7 @@ describe('register_agent tool', () => {
         projectId: expectedProjectId,  // Use the same projectId from config
         natsUrl: 'nats://localhost:4222',
         capabilities: [],
-        scope: 'project' as const,
-        visibility: 'project-only' as const,
+        scope: 'team' as const,
         status: 'offline' as const,
         currentTaskCount: 0,
         registeredAt: new Date().toISOString(),
@@ -290,8 +285,7 @@ describe('register_agent tool', () => {
         projectId: '1234567890abcdef',
         natsUrl: 'nats://localhost:4222',
         capabilities: [],
-        scope: 'project' as const,
-        visibility: 'project-only' as const,
+        scope: 'team' as const,
         status: 'online' as const, // Online, not offline
         currentTaskCount: 0,
         registeredAt: new Date().toISOString(),
@@ -355,24 +349,14 @@ describe('register_agent tool', () => {
       expect(sessionState.registeredEntry?.capabilities).toEqual([]);
     });
 
-    it('should use default "project" scope', async () => {
+    it('should use default "team" scope', async () => {
       const args = {
         agentType: 'developer',
       };
 
       await handleRegisterAgent(args, sessionState, mockConfig);
 
-      expect(sessionState.registeredEntry?.scope).toBe('project');
-    });
-
-    it('should use default "project-only" visibility', async () => {
-      const args = {
-        agentType: 'developer',
-      };
-
-      await handleRegisterAgent(args, sessionState, mockConfig);
-
-      expect(sessionState.registeredEntry?.visibility).toBe('project-only');
+      expect(sessionState.registeredEntry?.scope).toBe('team');
     });
   });
 
@@ -430,8 +414,7 @@ describe('get_agent_info tool', () => {
         projectId: '1234567890abcdef',
         natsUrl: 'nats://localhost:4222',
         capabilities: ['typescript'],
-        scope: 'project',
-        visibility: 'project-only',
+        scope: 'team',
         status: 'online',
         currentTaskCount: 0,
         registeredAt: '2025-01-15T09:00:00Z',
@@ -457,8 +440,7 @@ describe('get_agent_info tool', () => {
         projectId: '1234567890abcdef', // Same project
         natsUrl: 'nats://localhost:4222',
         capabilities: ['coding', 'testing'],
-        scope: 'project',
-        visibility: 'project-only',
+        scope: 'team',
         status: 'online',
         currentTaskCount: 2,
         registeredAt: '2025-01-15T09:00:00Z',
@@ -478,7 +460,7 @@ describe('get_agent_info tool', () => {
       expect(result.content[0]?.text).toContain('| Status | online |');
       expect(result.content[0]?.text).toContain('| Hostname | test-host |');
       expect(result.content[0]?.text).toContain('| Capabilities | coding, testing |');
-      expect(result.content[0]?.text).toContain('| Scope | project |');
+      expect(result.content[0]?.text).toContain('| Scope | team |');
       expect(result.content[0]?.text).toContain('| Current Tasks | 2 |');
     });
 
@@ -492,8 +474,7 @@ describe('get_agent_info tool', () => {
         natsUrl: 'nats://localhost:4222',
         username: 'testuser',
         capabilities: ['typescript'],
-        scope: 'project',
-        visibility: 'private',
+        scope: 'private',
         status: 'online',
         currentTaskCount: 0,
         registeredAt: '2025-01-15T09:00:00Z',
@@ -520,8 +501,7 @@ describe('get_agent_info tool', () => {
         projectId: '1234567890abcdef',
         natsUrl: 'nats://localhost:4222',
         capabilities: [], // Empty capabilities
-        scope: 'project',
-        visibility: 'project-only',
+        scope: 'team',
         status: 'online',
         currentTaskCount: 0,
         registeredAt: '2025-01-15T09:00:00Z',
@@ -571,8 +551,7 @@ describe('get_agent_info tool', () => {
         projectId: '1234567890abcdef',
         natsUrl: 'nats://localhost:4222',
         capabilities: [],
-        scope: 'project',
-        visibility: 'private', // Private visibility
+        scope: 'private', // Private visibility
         status: 'online',
         currentTaskCount: 0,
         registeredAt: '2025-01-15T09:00:00Z',
@@ -597,8 +576,7 @@ describe('get_agent_info tool', () => {
         projectId: 'fedcba0987654321', // Different project
         natsUrl: 'nats://localhost:4222',
         capabilities: [],
-        scope: 'project',
-        visibility: 'project-only',
+        scope: 'team',
         status: 'online',
         currentTaskCount: 0,
         registeredAt: '2025-01-15T09:00:00Z',
@@ -623,8 +601,7 @@ describe('get_agent_info tool', () => {
         projectId: 'fedcba0987654321', // Different project
         natsUrl: 'nats://localhost:4222',
         capabilities: [],
-        scope: 'project',
-        visibility: 'public', // Public visibility
+        scope: 'public', // Public visibility
         status: 'online',
         currentTaskCount: 0,
         registeredAt: '2025-01-15T09:00:00Z',
@@ -652,8 +629,7 @@ describe('get_agent_info tool', () => {
         natsUrl: 'nats://localhost:4222',
         username: 'testuser', // Same username
         capabilities: [],
-        scope: 'user',
-        visibility: 'user-only',
+        scope: 'personal',
         status: 'online',
         currentTaskCount: 0,
         registeredAt: '2025-01-15T09:00:00Z',
@@ -681,8 +657,7 @@ describe('get_agent_info tool', () => {
         natsUrl: 'nats://secret-nats:4222',
         username: 'otheruser',
         capabilities: [],
-        scope: 'project',
-        visibility: 'public',
+        scope: 'public',
         status: 'online',
         currentTaskCount: 0,
         registeredAt: '2025-01-15T09:00:00Z',
@@ -714,8 +689,7 @@ describe('get_agent_info tool', () => {
         projectId: '1234567890abcdef', // Same project
         natsUrl: 'nats://localhost:4222',
         capabilities: [],
-        scope: 'project',
-        visibility: 'project-only',
+        scope: 'team',
         status: 'online',
         currentTaskCount: 0,
         registeredAt: '2025-01-15T09:00:00Z',
@@ -800,8 +774,7 @@ describe('get_agent_info tool', () => {
         projectId: '1234567890abcdef',
         natsUrl: 'nats://localhost:4222',
         capabilities: [],
-        scope: 'project',
-        visibility: 'project-only',
+        scope: 'team',
         status: 'online',
         currentTaskCount: 0,
         registeredAt: '2025-01-15T09:00:00Z',
@@ -836,8 +809,8 @@ describe('discover_agents tool', () => {
         projectId: '1234567890abcdef',
         natsUrl: 'nats://localhost:4222',
         capabilities: ['typescript'],
-        scope: 'project',
-        visibility: 'project-only',
+        username: 'testuser',
+        scope: 'team',
         status: 'online',
         currentTaskCount: 0,
         registeredAt: '2025-01-15T09:00:00Z',
@@ -916,8 +889,7 @@ describe('discover_agents tool', () => {
           projectId: '1234567890abcdef',
           natsUrl: 'nats://localhost:4222',
           capabilities: [],
-          scope: 'project',
-          visibility: 'project-only',
+          scope: 'team',
           status: 'offline',
           currentTaskCount: 0,
           registeredAt: '2025-01-15T09:00:00Z',
@@ -946,8 +918,7 @@ describe('discover_agents tool', () => {
           projectId: '1234567890abcdef', // Same project
           natsUrl: 'nats://localhost:4222',
           capabilities: ['coding'],
-          scope: 'project',
-          visibility: 'project-only',
+          scope: 'team',
           status: 'online',
           currentTaskCount: 1,
           registeredAt: '2025-01-15T09:00:00Z',
@@ -961,8 +932,7 @@ describe('discover_agents tool', () => {
           projectId: '1234567890abcdef', // Same project
           natsUrl: 'nats://localhost:4222',
           capabilities: ['review'],
-          scope: 'project',
-          visibility: 'project-only',
+          scope: 'team',
           status: 'busy',
           currentTaskCount: 3,
           registeredAt: '2025-01-15T08:00:00Z',
@@ -994,8 +964,7 @@ describe('discover_agents tool', () => {
         projectId: '1234567890abcdef',
         natsUrl: 'nats://localhost:4222',
         capabilities: ['typescript', 'testing'],
-        scope: 'project',
-        visibility: 'project-only',
+        scope: 'team',
         status: 'online',
         currentTaskCount: 1,
         registeredAt: '2025-01-15T09:00:00Z',
@@ -1009,8 +978,8 @@ describe('discover_agents tool', () => {
         projectId: '1234567890abcdef',
         natsUrl: 'nats://localhost:4222',
         capabilities: ['code-review'],
-        scope: 'user',
-        visibility: 'project-only',
+        username: 'testuser',
+        scope: 'personal',
         status: 'busy',
         currentTaskCount: 3,
         registeredAt: '2025-01-15T08:00:00Z',
@@ -1024,8 +993,7 @@ describe('discover_agents tool', () => {
         projectId: '1234567890abcdef',
         natsUrl: 'nats://localhost:4222',
         capabilities: ['python'],
-        scope: 'project',
-        visibility: 'project-only',
+        scope: 'team',
         status: 'offline',
         currentTaskCount: 0,
         registeredAt: '2025-01-15T07:00:00Z',
@@ -1087,7 +1055,7 @@ describe('discover_agents tool', () => {
     });
 
     it('should filter by scope', async () => {
-      const args = { scope: 'user' as const };
+      const args = { scope: 'personal' as const };
       const result = await handleDiscoverAgents(args, sessionState, mockConfig);
 
       expect(result.isError).toBeUndefined();
@@ -1130,8 +1098,7 @@ describe('discover_agents tool', () => {
           projectId: '1234567890abcdef',
           natsUrl: 'nats://localhost:4222',
           capabilities: [],
-          scope: 'project',
-          visibility: 'project-only',
+          scope: 'public',
           status: 'online',
           currentTaskCount: 0,
           registeredAt: '2025-01-15T09:00:00Z',
@@ -1145,8 +1112,7 @@ describe('discover_agents tool', () => {
           projectId: '1234567890abcdef',
           natsUrl: 'nats://localhost:4222',
           capabilities: [],
-          scope: 'project',
-          visibility: 'private',
+          scope: 'private',
           status: 'online',
           currentTaskCount: 0,
           registeredAt: '2025-01-15T09:00:00Z',
@@ -1175,8 +1141,7 @@ describe('discover_agents tool', () => {
           projectId: '1234567890abcdef', // Same project
           natsUrl: 'nats://localhost:4222',
           capabilities: [],
-          scope: 'project',
-          visibility: 'project-only',
+          scope: 'team',
           status: 'online',
           currentTaskCount: 0,
           registeredAt: '2025-01-15T09:00:00Z',
@@ -1190,8 +1155,7 @@ describe('discover_agents tool', () => {
           projectId: 'fedcba0987654321', // Different project
           natsUrl: 'nats://localhost:4222',
           capabilities: [],
-          scope: 'project',
-          visibility: 'project-only',
+          scope: 'team',
           status: 'online',
           currentTaskCount: 0,
           registeredAt: '2025-01-15T09:00:00Z',
@@ -1220,8 +1184,7 @@ describe('discover_agents tool', () => {
           projectId: 'fedcba0987654321', // Different project
           natsUrl: 'nats://localhost:4222',
           capabilities: [],
-          scope: 'project',
-          visibility: 'public',
+          scope: 'public',
           status: 'online',
           currentTaskCount: 0,
           registeredAt: '2025-01-15T09:00:00Z',
@@ -1252,8 +1215,7 @@ describe('discover_agents tool', () => {
           natsUrl: 'nats://secret:4222',
           username: 'otheruser',
           capabilities: [],
-          scope: 'project',
-          visibility: 'public',
+          scope: 'public',
           status: 'online',
           currentTaskCount: 0,
           registeredAt: '2025-01-15T09:00:00Z',
@@ -1288,8 +1250,7 @@ describe('discover_agents tool', () => {
           projectId: '1234567890abcdef',
           natsUrl: 'nats://localhost:4222',
           capabilities: [],
-          scope: 'project',
-          visibility: 'project-only',
+          scope: 'team',
           status: 'online',
           currentTaskCount: 0,
           registeredAt: '2025-01-15T09:00:00Z',
@@ -1303,8 +1264,7 @@ describe('discover_agents tool', () => {
           projectId: '1234567890abcdef',
           natsUrl: 'nats://localhost:4222',
           capabilities: [],
-          scope: 'project',
-          visibility: 'project-only',
+          scope: 'team',
           status: 'online',
           currentTaskCount: 0,
           registeredAt: '2025-01-15T09:00:00Z',
@@ -1318,8 +1278,7 @@ describe('discover_agents tool', () => {
           projectId: '1234567890abcdef',
           natsUrl: 'nats://localhost:4222',
           capabilities: [],
-          scope: 'project',
-          visibility: 'project-only',
+          scope: 'team',
           status: 'online',
           currentTaskCount: 0,
           registeredAt: '2025-01-15T09:00:00Z',
@@ -1385,8 +1344,7 @@ describe('deregister_agent tool', () => {
         projectId: '1234567890abcdef',
         natsUrl: 'nats://localhost:4222',
         capabilities: ['typescript'],
-        scope: 'project',
-        visibility: 'project-only',
+        scope: 'team',
         status: 'online',
         currentTaskCount: 0,
         registeredAt: '2025-01-15T09:00:00Z',
@@ -1455,8 +1413,7 @@ describe('deregister_agent tool', () => {
       expect(entry.hostname).toBe('test-host');
       expect(entry.projectId).toBe('1234567890abcdef');
       expect(entry.capabilities).toEqual(['typescript']);
-      expect(entry.scope).toBe('project');
-      expect(entry.visibility).toBe('project-only');
+      expect(entry.scope).toBe('team');
     });
 
     it('should clear session state', async () => {
@@ -1609,8 +1566,7 @@ describe('update_presence tool', () => {
         projectId: '1234567890abcdef',
         natsUrl: 'nats://localhost:4222',
         capabilities: ['typescript'],
-        scope: 'project',
-        visibility: 'project-only',
+        scope: 'team',
         status: 'online',
         currentTaskCount: 0,
         registeredAt: '2025-01-15T09:00:00Z',
