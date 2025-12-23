@@ -90,13 +90,18 @@ export async function publishMessage(channel: InternalChannel, payload: string):
 }
 
 /**
- * Read messages from a channel's stream (newest messages, up to limit)
+ * Read messages from a channel's stream with pagination support (v0.4.0+)
  * Uses direct stream access for true pub-sub semantics - all agents can read the same messages
+ * @param channel - Channel to read from
+ * @param limit - Maximum number of messages to read
+ * @param offset - Number of messages to skip from the end (0 = newest messages)
+ * @returns Object with messages array and total count for pagination metadata
  */
 export async function readMessages(
   channel: InternalChannel,
-  limit: number
-): Promise<{ data: string }[]> {
+  limit: number,
+  offset: number = 0
+): Promise<{ messages: { data: string }[]; total: number }> {
   const jsm = getJetStreamManager();
   const messages: { data: string }[] = [];
 
@@ -106,23 +111,28 @@ export async function readMessages(
     const { first_seq, last_seq, messages: msgCount } = streamInfo.state;
 
     if (msgCount === 0) {
-      return messages;
+      return { messages, total: 0 };
     }
 
-    // Calculate start sequence for newest N messages
-    const startSeq = Math.max(first_seq, last_seq - limit + 1);
+    // Calculate sequence range for pagination
+    // Offset from end: last_seq - offset is the newest message we want
+    // Then go back limit-1 more to get limit messages
+    const endSeq = Math.max(first_seq, last_seq - offset);
+    const startSeq = Math.max(first_seq, endSeq - limit + 1);
 
     logger.debug('Reading messages from stream', {
       stream: channel.streamName,
       firstSeq: first_seq,
       lastSeq: last_seq,
       startSeq,
+      endSeq,
       limit,
+      offset,
     });
 
     // Read messages directly from stream by sequence number
     const stream = await jsm.streams.get(channel.streamName);
-    for (let seq = startSeq; seq <= last_seq; seq++) {
+    for (let seq = startSeq; seq <= endSeq; seq++) {
       try {
         const msg = await stream.getMessage({ seq });
         messages.push({ data: new TextDecoder().decode(msg.data) });
@@ -138,17 +148,19 @@ export async function readMessages(
     logger.debug('Messages read from stream', {
       stream: channel.streamName,
       count: messages.length,
+      total: msgCount,
+      offset,
     });
+
+    return { messages, total: msgCount };
   } catch (err) {
     const error = err as Error;
     // Stream doesn't exist yet - not an error
     if (error.message?.includes('stream not found')) {
-      return messages;
+      return { messages, total: 0 };
     }
     throw new Error(`Failed to read messages from ${channel.name}: ${error.message}`);
   }
-
-  return messages;
 }
 
 /**

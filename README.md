@@ -158,31 +158,101 @@ If no configuration is provided, these default channels are created:
 
 ## MCP Tools
 
-Warp provides 17 MCP tools organized into categories:
+Warp provides 20 MCP tools organized into categories:
 
 | Category | Tools | Purpose |
 |----------|-------|---------|
-| **Identity** | `set_handle`, `get_my_handle` | Set/get your agent name for messages |
-| **Channels** | `list_channels`, `send_message`, `read_messages` | Topic-based pub/sub messaging |
-| **Registry** | `register_agent`, `discover_agents`, `get_agent_info`, `update_presence`, `deregister_agent` | Agent discovery and presence |
-| **Direct Messages** | `send_direct_message`, `read_direct_messages` | Agent-to-agent communication |
-| **Work Queues** | `broadcast_work_offer`, `claim_work` | Capability-based work distribution |
-| **Dead Letter** | `list_dead_letter_items`, `retry_dead_letter_item`, `discard_dead_letter_item` | Handle failed work items |
+| **Identity** | `warp_handle_set`, `warp_handle_get` | Set/get your agent name for messages |
+| **Channels** | `warp_channels_list`, `warp_channels_send`, `warp_channels_read`, `warp_channels_status` | Topic-based pub/sub messaging |
+| **Registry** | `warp_registry_register`, `warp_registry_discover`, `warp_registry_get_info`, `warp_registry_update_presence`, `warp_registry_deregister` | Agent discovery and presence |
+| **Direct Messages** | `warp_messages_send_direct`, `warp_messages_read_direct` | Agent-to-agent communication |
+| **Work Queues** | `warp_work_broadcast`, `warp_work_claim`, `warp_work_list`, `warp_work_queue_status` | Capability-based work distribution |
+| **Dead Letter** | `warp_dlq_list`, `warp_dlq_retry`, `warp_dlq_discard` | Handle failed work items |
 
 Each tool includes detailed descriptions visible in your MCP client. Common usage:
 
+```javascript
+// Register and discover
+warp_registry_register({ agentType: "developer", capabilities: ["typescript"] })
+warp_registry_discover({ capability: "code-review" })
+warp_registry_discover({ capability: "testing", limit: 10, cursor: "..." })  // Pagination
+
+// Channel messaging
+warp_channels_send({ channel: "planning", message: "Starting sprint 5" })
+warp_channels_read({ channel: "roadmap" })                                 // Last 50 messages (default)
+warp_channels_read({ channel: "roadmap", limit: 10, cursor: "..." })      // Pagination
+warp_channels_status({ channel: "errors" })                                 // Check specific channel
+warp_channels_status({})                                                    // Check all channels
+
+// Direct messaging
+warp_messages_send_direct({ recipientGuid: "...", message: "Please review PR #42" })
+warp_messages_read_direct({ limit: 20 })                                    // Read inbox
+warp_messages_read_direct({ messageType: "help-request", cursor: "..." })  // Filter and paginate
+
+// Work distribution
+warp_work_broadcast({
+  taskId: "task-1",
+  description: "Fix bug",
+  requiredCapability: "typescript",
+  priority: 8
+})
+warp_work_claim({ capability: "typescript" })
+warp_work_list({ capability: "typescript", minPriority: 7 })                // Preview before claiming
+warp_work_queue_status({ capability: "typescript" })                        // Check queue depth
+warp_work_queue_status({})                                                  // All non-empty queues
+
+// Failed work handling
+warp_dlq_list({ capability: "typescript", limit: 20 })       // Pagination support
+warp_dlq_retry({ itemId: "...", resetAttempts: true })
+warp_dlq_discard({ itemId: "..." })
 ```
-# Register and discover
-register_agent({ agentType: "developer", capabilities: ["typescript"] })
-discover_agents({ capability: "code-review" })
 
-# Communicate
-send_message({ channel: "planning", message: "Starting sprint 5" })
-send_direct_message({ recipientGuid: "...", message: "Please review PR #42" })
+### Pagination (v0.4.0+)
 
-# Work distribution
-broadcast_work_offer({ taskId: "task-1", description: "Fix bug", requiredCapability: "typescript" })
-claim_work({ capability: "typescript" })
+Several tools support pagination for handling large result sets:
+
+- **warp_channels_read**: Page through channel message history
+- **warp_messages_read_direct**: Page through inbox messages
+- **warp_registry_discover**: Page through agent registry results
+- **warp_dlq_list**: Page through failed work items
+
+**Pagination Pattern**:
+```javascript
+// First request - returns up to 'limit' items
+const response1 = await warp_channels_read({ channel: "roadmap", limit: 50 });
+
+// Response includes pagination metadata:
+// {
+//   count: 50,              // Items returned in this response
+//   total: 847,             // Total items available
+//   hasMore: true,          // More items available
+//   nextCursor: "eyJ..."    // Base64url-encoded cursor for next page
+// }
+
+// Subsequent request - use cursor from previous response
+const response2 = await warp_channels_read({
+  channel: "roadmap",
+  limit: 50,
+  cursor: response1.nextCursor
+});
+```
+
+**Cursor Format**: Cursors are base64url-encoded JSON containing offset, limit, and filter hash. They're opaque strings - don't parse or modify them. If filters change between requests, the cursor is invalidated.
+
+### Truncation Metadata (v0.3.0+)
+
+Tools that may return large result sets include truncation hints:
+
+- **warp_work_list**: Shows if work queue results were limited
+- Other list-based tools provide guidance when results are truncated
+
+**Example**:
+```javascript
+warp_work_list({ capability: "typescript", limit: 20 });
+
+// If more than 20 items exist, response includes:
+// "Showing first 20 of 125 items. Increase 'limit' (max: 100) or use filters:
+//  minPriority, maxPriority, deadlineBefore, deadlineAfter"
 ```
 
 ## Environment Variables
@@ -321,7 +391,7 @@ Point all Warp instances to the same NATS URL:
 
 ### 3. Register and Discover
 
-Each agent calls `register_agent` → automatically discoverable across all computers.
+Each agent calls `warp_registry_register` → automatically discoverable across all computers.
 
 ### Visibility Controls
 

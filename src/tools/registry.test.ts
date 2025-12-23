@@ -721,7 +721,7 @@ describe('get_agent_info tool', () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0]?.text).toContain('You must be registered to view agent information');
-      expect(result.content[0]?.text).toContain('Use register_agent first');
+      expect(result.content[0]?.text).toContain('Use warp_registry_register first');
     });
 
     it('should require both agentGuid and registeredEntry', async () => {
@@ -850,7 +850,7 @@ describe('discover_agents tool', () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0]?.text).toContain('You must register first');
-      expect(result.content[0]?.text).toContain('register_agent');
+      expect(result.content[0]?.text).toContain('warp_registry_register');
     });
 
     it('should require both agentGuid and registeredEntry', async () => {
@@ -946,7 +946,7 @@ describe('discover_agents tool', () => {
       const result = await handleDiscoverAgents(args, sessionState, mockConfig);
 
       expect(result.isError).toBeUndefined();
-      expect(result.content[0]?.text).toContain('Found 2 agents:');
+      expect(result.content[0]?.text).toContain('Found 2 of 2 agents:');
       expect(result.content[0]?.text).toContain('**dev-agent** (developer)');
       expect(result.content[0]?.text).toContain('**review-agent** (reviewer)');
       expect(result.content[0]?.text).toContain('- Status: online');
@@ -1021,7 +1021,7 @@ describe('discover_agents tool', () => {
       const result = await handleDiscoverAgents(args, sessionState, mockConfig);
 
       expect(result.isError).toBeUndefined();
-      expect(result.content[0]?.text).toContain('Found 1 agent:');
+      expect(result.content[0]?.text).toContain('Found 1 of 1 agent:');
       expect(result.content[0]?.text).toContain('**dev-agent** (developer)');
       expect(result.content[0]?.text).toContain('- Capabilities: [typescript, testing]');
     });
@@ -1031,7 +1031,7 @@ describe('discover_agents tool', () => {
       const result = await handleDiscoverAgents(args, sessionState, mockConfig);
 
       expect(result.isError).toBeUndefined();
-      expect(result.content[0]?.text).toContain('Found 1 agent:');
+      expect(result.content[0]?.text).toContain('Found 1 of 1 agent:');
       expect(result.content[0]?.text).toContain('**review-agent** (reviewer)');
     });
 
@@ -1041,7 +1041,7 @@ describe('discover_agents tool', () => {
 
       expect(result.isError).toBeUndefined();
       // Should find 2 (excluding offline)
-      expect(result.content[0]?.text).toContain('Found 2 agents:');
+      expect(result.content[0]?.text).toContain('Found 2 of 2 agents:');
     });
 
     it('should filter by status', async () => {
@@ -1049,7 +1049,7 @@ describe('discover_agents tool', () => {
       const result = await handleDiscoverAgents(args, sessionState, mockConfig);
 
       expect(result.isError).toBeUndefined();
-      expect(result.content[0]?.text).toContain('Found 1 agent:');
+      expect(result.content[0]?.text).toContain('Found 1 of 1 agent:');
       expect(result.content[0]?.text).toContain('**review-agent** (reviewer)');
       expect(result.content[0]?.text).toContain('- Status: busy');
     });
@@ -1059,7 +1059,7 @@ describe('discover_agents tool', () => {
       const result = await handleDiscoverAgents(args, sessionState, mockConfig);
 
       expect(result.isError).toBeUndefined();
-      expect(result.content[0]?.text).toContain('Found 1 agent:');
+      expect(result.content[0]?.text).toContain('Found 1 of 1 agent:');
       expect(result.content[0]?.text).toContain('**review-agent** (reviewer)');
     });
 
@@ -1068,7 +1068,7 @@ describe('discover_agents tool', () => {
       const result = await handleDiscoverAgents(args, sessionState, mockConfig);
 
       expect(result.isError).toBeUndefined();
-      expect(result.content[0]?.text).toContain('Found 3 agents:');
+      expect(result.content[0]?.text).toContain('Found 3 of 3 agents:');
       expect(result.content[0]?.text).toContain('**other-dev** (developer)');
       expect(result.content[0]?.text).toContain('- Status: offline');
     });
@@ -1082,7 +1082,7 @@ describe('discover_agents tool', () => {
       const result = await handleDiscoverAgents(args, sessionState, mockConfig);
 
       expect(result.isError).toBeUndefined();
-      expect(result.content[0]?.text).toContain('Found 1 agent:');
+      expect(result.content[0]?.text).toContain('Found 1 of 1 agent:');
       expect(result.content[0]?.text).toContain('**dev-agent** (developer)');
     });
   });
@@ -1126,7 +1126,7 @@ describe('discover_agents tool', () => {
       const result = await handleDiscoverAgents(args, sessionState, mockConfig);
 
       expect(result.isError).toBeUndefined();
-      expect(result.content[0]?.text).toContain('Found 1 agent:');
+      expect(result.content[0]?.text).toContain('Found 1 of 1 agent:');
       expect(result.content[0]?.text).toContain('**public-agent**');
       expect(result.content[0]?.text).not.toContain('**private-agent**');
     });
@@ -1169,7 +1169,7 @@ describe('discover_agents tool', () => {
       const result = await handleDiscoverAgents(args, sessionState, mockConfig);
 
       expect(result.isError).toBeUndefined();
-      expect(result.content[0]?.text).toContain('Found 1 agent:');
+      expect(result.content[0]?.text).toContain('Found 1 of 1 agent:');
       expect(result.content[0]?.text).toContain('**same-project**');
       expect(result.content[0]?.text).not.toContain('**other-project**');
     });
@@ -1198,7 +1198,7 @@ describe('discover_agents tool', () => {
       const result = await handleDiscoverAgents(args, sessionState, mockConfig);
 
       expect(result.isError).toBeUndefined();
-      expect(result.content[0]?.text).toContain('Found 1 agent:');
+      expect(result.content[0]?.text).toContain('Found 1 of 1 agent:');
       expect(result.content[0]?.text).toContain('**public-agent**');
     });
   });
@@ -1448,7 +1448,7 @@ describe('deregister_agent tool', () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0]?.text).toContain('You must be registered to deregister');
-      expect(result.content[0]?.text).toContain('Use register_agent first');
+      expect(result.content[0]?.text).toContain('Use warp_registry_register first');
     });
 
     it('should require both agentGuid and registeredEntry', async () => {
@@ -1777,7 +1777,7 @@ describe('update_presence tool', () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0]?.text).toContain('You must be registered to update presence');
-      expect(result.content[0]?.text).toContain('Use register_agent first');
+      expect(result.content[0]?.text).toContain('Use warp_registry_register first');
     });
 
     it('should require both agentGuid and registeredEntry', async () => {

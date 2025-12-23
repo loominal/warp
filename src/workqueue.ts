@@ -396,3 +396,108 @@ export async function getPendingWorkCount(capability: string): Promise<number> {
     throw new Error(`Failed to get pending work count for ${capability}: ${error.message}`);
   }
 }
+
+/**
+ * Filters for listing work items
+ */
+export interface ListWorkItemsFilters {
+  /** Filter by capability (required) */
+  capability: string;
+  /** Filter by minimum priority (1-10) */
+  minPriority?: number;
+  /** Filter by maximum priority (1-10) */
+  maxPriority?: number;
+  /** Filter by deadline before this ISO 8601 timestamp */
+  deadlineBefore?: string;
+  /** Filter by deadline after this ISO 8601 timestamp */
+  deadlineAfter?: string;
+}
+
+/**
+ * List work items from queue without claiming them (non-destructive preview)
+ * Returns work items with truncation metadata
+ * @param filters - Filtering options
+ * @param limit - Maximum number of items to return (default: 20, max: 100)
+ */
+export async function listWorkItems(
+  filters: ListWorkItemsFilters,
+  limit: number = 20
+): Promise<{ items: WorkItem[]; total: number }> {
+  const { capability, minPriority, maxPriority, deadlineBefore, deadlineAfter } = filters;
+  const jsm = getJetStreamManager();
+  const streamName = `WORKQUEUE_${sanitizeCapability(capability)}`;
+  const items: WorkItem[] = [];
+  const effectiveLimit = Math.min(Math.max(limit, 1), 100);
+
+  try {
+    // Get stream info to find message range
+    const streamInfo = await jsm.streams.info(streamName);
+    const { first_seq, last_seq, messages: msgCount } = streamInfo.state;
+
+    if (msgCount === 0) {
+      return { items, total: 0 };
+    }
+
+    logger.debug('Listing work items from queue', {
+      capability,
+      streamName,
+      firstSeq: first_seq,
+      lastSeq: last_seq,
+      totalMessages: msgCount,
+      limit: effectiveLimit,
+    });
+
+    // Read messages directly from stream by sequence number
+    const stream = await jsm.streams.get(streamName);
+    let collected = 0;
+
+    for (let seq = first_seq; seq <= last_seq && collected < effectiveLimit; seq++) {
+      try {
+        const msg = await stream.getMessage({ seq });
+        const item = JSON.parse(new TextDecoder().decode(msg.data)) as WorkItem;
+
+        // Apply filters
+        if (minPriority !== undefined && (item.priority || 5) < minPriority) {
+          continue;
+        }
+        if (maxPriority !== undefined && (item.priority || 5) > maxPriority) {
+          continue;
+        }
+        if (deadlineBefore && item.deadline) {
+          if (new Date(item.deadline) >= new Date(deadlineBefore)) {
+            continue;
+          }
+        }
+        if (deadlineAfter && item.deadline) {
+          if (new Date(item.deadline) <= new Date(deadlineAfter)) {
+            continue;
+          }
+        }
+
+        items.push(item);
+        collected++;
+      } catch (err) {
+        // Message may have been deleted or claimed - skip gaps
+        const error = err as Error;
+        if (!error.message?.includes('no message found')) {
+          logger.warn('Error reading work item', { seq, error: error.message });
+        }
+      }
+    }
+
+    logger.debug('Work items listed from queue', {
+      capability,
+      collected: items.length,
+      total: msgCount,
+    });
+
+    return { items, total: msgCount };
+  } catch (err) {
+    const error = err as Error;
+    // Stream doesn't exist yet - not an error
+    if (error.message?.includes('stream not found') || error.message?.includes('not found')) {
+      return { items, total: 0 };
+    }
+    throw new Error(`Failed to list work items from ${capability}: ${error.message}`);
+  }
+}

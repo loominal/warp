@@ -13,8 +13,17 @@ const logger = createLogger('tools:channels');
  */
 export const channelTools: Tool[] = [
   {
-    name: 'list_channels',
-    description: 'List all available chat channels and their descriptions',
+    name: 'warp_channels_list',
+    description:
+      'List all available chat channels and their descriptions. ' +
+      'Shows default channels (roadmap, parallel-work, errors) and any custom channels from .loominal-config.json. ' +
+      'Use this to discover which channels are available before sending messages. ' +
+      '\n\n' +
+      'When to use: Discovering available channels at session start, ' +
+      'checking channel names before using warp_channels_send, seeing custom project channels. ' +
+      '\n\n' +
+      'Examples:\n' +
+      '- List all: {} - No parameters needed, returns all available channels',
     inputSchema: {
       type: 'object',
       properties: {},

@@ -27,6 +27,7 @@ import {
   createMessagingTools,
   handleSendMessage,
   handleReadMessages,
+  handleChannelsStatus,
   registryTools,
   handleRegisterAgent,
   handleGetAgentInfo,
@@ -37,6 +38,8 @@ import {
   handleReadDirectMessages,
   handleBroadcastWorkOffer,
   handleClaimWork,
+  handleListWork,
+  handleWorkQueueStatus,
   handleListDeadLetterItems,
   handleRetryDeadLetterItem,
   handleDiscardDeadLetterItem,
@@ -116,55 +119,64 @@ async function handleToolCall(
   await ensureNatsReady();
 
   switch (name) {
-    case 'set_handle':
+    case 'warp_handle_set':
       return handleSetHandle(args, sessionState);
 
-    case 'get_my_handle':
+    case 'warp_handle_get':
       return handleGetMyHandle(args, sessionState);
 
-    case 'list_channels':
+    case 'warp_channels_list':
       return handleListChannels(args, channels);
 
-    case 'send_message':
+    case 'warp_channels_send':
       return handleSendMessage(args, sessionState, channels);
 
-    case 'read_messages':
+    case 'warp_channels_read':
       return handleReadMessages(args, channels);
 
-    case 'register_agent':
+    case 'warp_channels_status':
+      return handleChannelsStatus(args, channels);
+
+    case 'warp_registry_register':
       return handleRegisterAgent(args, sessionState, config);
 
-    case 'get_agent_info':
+    case 'warp_registry_get_info':
       return handleGetAgentInfo(args, sessionState);
 
-    case 'discover_agents':
+    case 'warp_registry_discover':
       return handleDiscoverAgents(args, sessionState, config);
 
-    case 'update_presence':
+    case 'warp_registry_update_presence':
       return handleUpdatePresence(args, sessionState);
 
-    case 'deregister_agent':
+    case 'warp_registry_deregister':
       return handleDeregisterAgent(args, sessionState);
 
-    case 'send_direct_message':
+    case 'warp_messages_send_direct':
       return handleSendDirectMessage(args, sessionState);
 
-    case 'read_direct_messages':
+    case 'warp_messages_read_direct':
       return handleReadDirectMessages(args, sessionState);
 
-    case 'broadcast_work_offer':
+    case 'warp_work_broadcast':
       return handleBroadcastWorkOffer(args, sessionState);
 
-    case 'claim_work':
+    case 'warp_work_claim':
       return handleClaimWork(args, sessionState);
 
-    case 'list_dead_letter_items':
+    case 'warp_work_list':
+      return handleListWork(args);
+
+    case 'warp_work_queue_status':
+      return handleWorkQueueStatus(args);
+
+    case 'warp_dlq_list':
       return handleListDeadLetterItems(args);
 
-    case 'retry_dead_letter_item':
+    case 'warp_dlq_retry':
       return handleRetryDeadLetterItem(args);
 
-    case 'discard_dead_letter_item':
+    case 'warp_dlq_discard':
       return handleDiscardDeadLetterItem(args);
 
     default:
@@ -193,7 +205,7 @@ async function runServer(): Promise<void> {
   const server = new Server(
     {
       name: 'loom-warp',
-      version: '0.2.0',
+      version: '1.0.0',
     },
     {
       capabilities: {

@@ -356,7 +356,7 @@ describe('send_direct_message tool', () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0]?.text).toContain('You must be registered to send messages');
-      expect(result.content[0]?.text).toContain('Use register_agent first');
+      expect(result.content[0]?.text).toContain('Use warp_registry_register first');
       expect(mockPublish).not.toHaveBeenCalled();
     });
 

@@ -331,9 +331,10 @@ describe('readMessages', () => {
 
     const result = await readMessages(mockChannel, 10);
 
-    expect(result).toHaveLength(2);
-    expect(result[0].data).toBe('message 1');
-    expect(result[1].data).toBe('message 2');
+    expect(result.messages).toHaveLength(2);
+    expect(result.total).toBe(2);
+    expect(result.messages[0].data).toBe('message 1');
+    expect(result.messages[1].data).toBe('message 2');
   });
 
   it('should return newest messages when limit is less than total', async () => {
@@ -351,9 +352,10 @@ describe('readMessages', () => {
 
     const result = await readMessages(mockChannel, 5);
 
-    expect(result).toHaveLength(5);
-    expect(result[0].data).toBe('msg 96');
-    expect(result[4].data).toBe('msg 100');
+    expect(result.messages).toHaveLength(5);
+    expect(result.total).toBe(100);
+    expect(result.messages[0].data).toBe('msg 96');
+    expect(result.messages[4].data).toBe('msg 100');
     // Should start from seq 96 (100 - 5 + 1)
     expect(mockStream.getMessage).toHaveBeenCalledWith({ seq: 96 });
   });
@@ -365,7 +367,7 @@ describe('readMessages', () => {
 
     const result = await readMessages(mockChannel, 10);
 
-    expect(result).toEqual([]);
+    expect(result).toEqual({ messages: [], total: 0 });
     expect(mockStream.getMessage).not.toHaveBeenCalled();
   });
 
@@ -374,7 +376,7 @@ describe('readMessages', () => {
 
     const result = await readMessages(mockChannel, 10);
 
-    expect(result).toEqual([]);
+    expect(result).toEqual({ messages: [], total: 0 });
   });
 
   it('should throw error for other failures', async () => {
@@ -399,10 +401,11 @@ describe('readMessages', () => {
 
     const result = await readMessages(mockChannel, 10);
 
-    expect(result).toHaveLength(3);
-    expect(result[0].data).toBe('msg 1');
-    expect(result[1].data).toBe('msg 3');
-    expect(result[2].data).toBe('msg 5');
+    expect(result.messages).toHaveLength(3);
+    expect(result.total).toBe(3);
+    expect(result.messages[0].data).toBe('msg 1');
+    expect(result.messages[1].data).toBe('msg 3');
+    expect(result.messages[2].data).toBe('msg 5');
   });
 
   it('should handle first_seq > 1 (old messages expired)', async () => {
@@ -420,7 +423,8 @@ describe('readMessages', () => {
 
     const result = await readMessages(mockChannel, 5);
 
-    expect(result).toHaveLength(5);
+    expect(result.messages).toHaveLength(5);
+    expect(result.total).toBe(50);
     // Should start from seq 96, not try to read below first_seq
     expect(mockStream.getMessage).toHaveBeenCalledWith({ seq: 96 });
   });
@@ -438,7 +442,8 @@ describe('readMessages', () => {
 
     const result = await readMessages(mockChannel, 10);
 
-    expect(result).toHaveLength(3);
+    expect(result.messages).toHaveLength(3);
+    expect(result.total).toBe(3);
     // Should start from first_seq (98), not go negative
     expect(mockStream.getMessage).toHaveBeenCalledWith({ seq: 98 });
   });

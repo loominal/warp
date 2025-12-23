@@ -106,6 +106,56 @@ export const DEFAULT_CONFIG = {
 };
 
 /**
+ * Truncation metadata for list operations (v0.4.0+)
+ * Helps agents understand when results are truncated and how to refine queries
+ */
+export interface TruncationMetadata {
+  /** Number of items shown in this response */
+  showing: number;
+  /** Total number of items available */
+  total: number;
+  /** Whether results were truncated */
+  truncated: boolean;
+  /** Suggestion for how to see more results (optional) */
+  suggestion?: string;
+}
+
+/**
+ * Pagination cursor for stateless pagination (v0.4.0+)
+ * Opaque base64-encoded string representing pagination state
+ */
+export type PaginationCursor = string;
+
+/**
+ * Pagination metadata for paginated list operations (v0.4.0+)
+ * Enables agents to navigate large result sets efficiently
+ */
+export interface PaginationMetadata {
+  /** Number of items in this page */
+  count: number;
+  /** Total number of items available (if known) */
+  total?: number;
+  /** Cursor for fetching the next page (null if no more pages) */
+  nextCursor: PaginationCursor | null;
+  /** Cursor for fetching the previous page (null if on first page) */
+  prevCursor?: PaginationCursor | null;
+  /** Whether there are more pages available */
+  hasMore: boolean;
+}
+
+/**
+ * Internal pagination state (encoded in cursor)
+ */
+export interface PaginationState {
+  /** Offset or starting position */
+  offset: number;
+  /** Page size */
+  limit: number;
+  /** Optional filter hash for consistency checking */
+  filterHash?: string;
+}
+
+/**
  * Message payload format
  */
 export interface MessagePayload {

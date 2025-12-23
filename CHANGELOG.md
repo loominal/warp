@@ -7,6 +7,101 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2025-12-22
+
+### BREAKING CHANGES
+
+**All MCP tools renamed with `warp_*` prefixes** to align with Anthropic best practices for tool namespacing.
+
+This is a breaking change that improves tool discoverability and follows the naming pattern used by production MCP servers like Asana and Slack.
+
+#### Migration Guide
+
+Update all tool invocations to use the new names:
+
+**Identity Tools**:
+- `set_handle` → `warp_handle_set`
+- `get_my_handle` → `warp_handle_get`
+
+**Channel Tools**:
+- `list_channels` → `warp_channels_list`
+- `send_message` → `warp_channels_send`
+- `read_messages` → `warp_channels_read`
+- `channels_status` → `warp_channels_status`
+
+**Registry Tools**:
+- `register_agent` → `warp_registry_register`
+- `discover_agents` → `warp_registry_discover`
+- `get_agent_info` → `warp_registry_get_info`
+- `update_presence` → `warp_registry_update_presence`
+- `deregister_agent` → `warp_registry_deregister`
+
+**Messaging Tools**:
+- `send_direct_message` → `warp_messages_send_direct`
+- `read_direct_messages` → `warp_messages_read_direct`
+
+**Work Queue Tools**:
+- `broadcast_work_offer` → `warp_work_broadcast`
+- `claim_work` → `warp_work_claim`
+- `list_work` → `warp_work_list`
+- `work_queue_status` → `warp_work_queue_status`
+
+**Dead Letter Queue Tools**:
+- `list_dead_letter_items` → `warp_dlq_list`
+- `retry_dead_letter_item` → `warp_dlq_retry`
+- `discard_dead_letter_item` → `warp_dlq_discard`
+
+### Changed
+- Tool names now follow consistent `warp_<category>_<action>` pattern
+- Tool descriptions updated to reference new tool names
+- All internal documentation and examples updated
+
+### Fixed
+- Improved tool discoverability in Claude Code MCP server list
+- Better grouping of related tools by category
+
+## [0.4.0] - 2025-12-22
+
+### Added
+- **Pagination Support**: Cursor-based pagination for large result sets
+  - `read_messages`: Page through channel message history with offset/limit/cursor
+  - `read_direct_messages`: Page through inbox messages (continuation-style for consume-once)
+  - `discover_agents`: Page through agent registry results
+  - `list_dead_letter_items`: Page through failed work items
+  - Base64url-encoded cursors with filter hash validation
+  - Pagination metadata includes count, total, hasMore, nextCursor
+- **Truncation Metadata**: List operations now return metadata indicating when results are truncated
+  - `discover_agents` includes suggestion when showing > 20 agents
+  - `list_dead_letter_items` shows truncation info when limit reached
+  - `read_messages` indicates when message history is truncated
+- **`list_work` Tool**: Non-destructive preview of work queue items before claiming
+  - Filter by priority (minPriority/maxPriority)
+  - Filter by deadline (deadlineBefore/deadlineAfter)
+  - View work items without removing them from queue
+  - Truncation metadata with helpful filtering suggestions
+- **`channels_status` Tool**: Check channel message counts without reading messages
+  - Get status for single channel or all channels
+  - Shows message count, storage usage, and sequence range
+  - Useful for monitoring activity without consuming messages
+- **`work_queue_status` Tool**: Monitor work queue health and backlog
+  - Check pending work count for specific capability or all queues
+  - Shows only non-empty queues when checking all
+  - Useful for monitoring system load and queue backlogs
+
+### Changed
+- **Tool Descriptions Simplified**: Removed NATS implementation details
+  - "JetStream" → "reliable messaging" or removed entirely
+  - "inbox stream" → "your inbox"
+  - "competing consumers" → "available agents"
+  - Descriptions now focus on "what" tools do, not "how" they work
+- `readMessages` function in streams.ts now returns `{ messages, total }` instead of array
+- Tool count updated from 17 to 20
+
+### Fixed
+- Work queue preview functionality (previously agents had to claim blindly)
+- Channel monitoring (agents can now check for new messages without reading them)
+- Result truncation awareness (agents now know when results are limited)
+
 ## [0.1.0] - 2025-12-11
 
 ### Status: Beta Release

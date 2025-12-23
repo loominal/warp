@@ -16,10 +16,15 @@ const HANDLE_PATTERN = /^[a-z0-9-]+$/;
  */
 export const handleTools: Tool[] = [
   {
-    name: 'set_handle',
+    name: 'warp_handle_set',
     description:
-      'Set your agent handle/username for the chat. This identifies you in all messages. ' +
-      'Handle must be lowercase alphanumeric with hyphens only (e.g., "project-manager", "tdd-engineer-1").',
+      'Set your agent handle/username for the chat. This identifies you in all messages and channel communications. ' +
+      'Handle must be lowercase alphanumeric with hyphens only (e.g., "project-manager", "tdd-engineer-1"). ' +
+      '\n\n' +
+      'When to use: Set this before using warp_channels_send or other messaging tools. ' +
+      'Once set, this handle will be used for all messages you send. You can change it later by calling warp_handle_set again. ' +
+      '\n\n' +
+      'Note: If you warp_registry_register without setting a handle first, a handle will be auto-generated from your agentType.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -33,8 +38,16 @@ export const handleTools: Tool[] = [
     },
   },
   {
-    name: 'get_my_handle',
-    description: 'Get your current agent handle',
+    name: 'warp_handle_get',
+    description:
+      'Get your current agent handle/username. ' +
+      'Returns the handle you set with warp_handle_set, or notifies you if no handle is set yet. ' +
+      '\n\n' +
+      'When to use: Verifying your current handle before sending messages, ' +
+      'checking if you need to set a handle, confirming handle was set correctly. ' +
+      '\n\n' +
+      'Examples:\n' +
+      '- Check handle: {} - No parameters needed',
     inputSchema: {
       type: 'object',
       properties: {},
